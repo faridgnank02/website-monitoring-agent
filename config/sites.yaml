@@ -1,0 +1,82 @@
+# ========================================
+# CONFIGURATION DES SITES À SURVEILLER
+# ========================================
+# Maximum 3 sites surveillés simultanément
+# 
+# Format:
+#   - instruction: Description en langage naturel de ce qu'il faut surveiller
+#     schedule: Fréquence de surveillance (daily HH:MM, interval Xh, twice-daily)
+#     active: true/false pour activer/désactiver
+#     threshold: Seuil de changement en % (1.0 = 1%)
+#     tags: (optionnel) Liste de tags pour catégoriser
+
+sites:
+  # Exemple 1 : Surveillance de Zalando (site réel qui fonctionne)
+  - instruction: "surveille les prix sur la page homme de Zalando"
+    schedule: "daily 10:00"
+    active: true
+    threshold: 1.0
+    tags:
+      - pricing
+      - ecommerce
+    notes: "Site de test qui fonctionne bien avec Firecrawl"
+
+  # Exemple 2 : Surveillance de page de pricing (désactivé car site inexistant)
+  - instruction: "surveille la page de tarification de TechCorp pour détecter les changements de prix"
+    schedule: "daily 10:00"
+    active: false
+    threshold: 1.0
+    tags:
+      - pricing
+      - competitor
+    notes: "Particulièrement attentif aux plans Pro et Enterprise"
+
+  # Exemple 3 : Surveillance de features produit
+  - instruction: "track la page des fonctionnalités de ProductY pour les nouvelles features"
+    schedule: "daily 14:00"
+    active: false
+    threshold: 2.0
+    tags:
+      - features
+      - product
+    notes: "Alerter sur ajout/suppression de features"
+
+# ========================================
+# NOTES D'UTILISATION
+# ========================================
+#
+# schedule:
+#   - "daily HH:MM" : Une fois par jour à l'heure spécifiée
+#   - "twice-daily" : Deux fois par jour (10:00 et 22:00)
+#   - "interval Xh" : Toutes les X heures (ex: "interval 6h")
+#   - "cron 0 10 * * *" : Expression cron complète
+#
+# threshold:
+#   - 0.5 : Très sensible (0.5% de changement déclenche une alerte)
+#   - 1.0 : Sensibilité normale (recommandé pour pricing, features)
+#   - 5.0 : Peu sensible (pour contenus qui changent souvent)
+#   - 10.0 : Très peu sensible (pour blogs, news)
+#
+# active:
+#   - true : Le site sera surveillé selon le schedule
+#   - false : Le site est désactivé (pas de surveillance)
+#
+# ========================================
+# EXEMPLES D'INSTRUCTIONS VALIDES
+# ========================================
+#
+# Pricing:
+#   "surveille les prix sur la page /pricing de example.com"
+#   "monitore les tarifs des plans Pro et Enterprise de CompanyX"
+#
+# Features:
+#   "track les nouvelles fonctionnalités sur la page produit de StartupY"
+#   "surveille les mises à jour des features dans la documentation de ToolZ"
+#
+# Content:
+#   "monitore les nouveaux articles de blog sur example.com/blog"
+#   "surveille la page carrières de CompanyX pour les nouvelles offres"
+#
+# Comparaison:
+#   "compare les prix de CompetitorA avec nos tarifs"
+#   "surveille les changements dans les conditions d'utilisation de ServiceB"
