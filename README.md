@@ -1,6 +1,6 @@
-# 🤖 Monitor Agent
+# Monitoring website agent
 
-Agent intelligent de surveillance de sites web avec détection automatique de changements et notifications par email.
+Intelligent web monitoring agent with automatic change detection and email notifications.
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Status](https://img.shields.io/badge/status-production%20ready-brightgreen.svg)]()
@@ -8,164 +8,143 @@ Agent intelligent de surveillance de sites web avec détection automatique de ch
 
 ---
 
-## � État du projet
+## Description
 
-**✅ 100% Fonctionnel** - Tous les modules sont implémentés et testés
+This project is an automated system that:
 
-| Module | Status | Description |
-|--------|--------|-------------|
-| 🕷️ Firecrawl Scraper | ✅ Opérationnel | Scraping avancé avec support JavaScript |
-| 🧠 AI Agent | ✅ Opérationnel | Parsing d'instructions en langage naturel (Groq) |
-| 🔄 Content Comparator | ✅ Opérationnel | Détection intelligente de changements (difflib) |
-| 📊 Sheets Manager | ✅ Opérationnel | Stockage historique dans Google Sheets |
-| 📧 Gmail Notifier | ✅ Opérationnel | Notifications email HTML professionnelles |
-| 🎯 Main Orchestrator | ✅ Opérationnel | Workflow complet end-to-end testé |
+- Understands natural language instructions (e.g., "monitor prices on Zalando")
+- Scrapes websites with JavaScript support (via Firecrawl)
+- Detects and analyzes content changes using difflib
+- Archives history in Google Sheets
+- Sends HTML email notifications
 
-**Statistiques :**
-- **2422 lignes de code Python**
-- **5 modules principaux**
-- **8 tests unitaires** (100% passés)
-- **Workflow complet testé** avec succès
+### Usage Example
 
----
+Give it a natural language instruction like:
 
-## �📋 Description
+> *"monitor prices on the Zalando men's page"*
 
-Monitor Agent est un système automatisé qui :
+And it will:
+1. Automatically identify the correct URL (`https://www.zalando.fr/homme`)
+2. Scrape the site (even JavaScript-heavy sites) - 56,509 characters extracted
+3. Compare with the previous version (intelligent diff using difflib)
+4. Store history in Google Sheets
+5. Send an email alert if change > defined threshold (5.0% detected)
 
-- 🧠 Comprend les instructions en langage naturel (ex: "surveille les prix sur Zalando")
-- 🔍 Scrape des sites web avec support JavaScript (via Firecrawl)
-- 📊 Détecte et analyse les changements de contenu avec difflib
-- 💾 Archive l'historique dans Google Sheets
-- 📧 Envoie des notifications HTML par email
-
-### Exemple d'utilisation
-
-Donnez-lui une instruction en français comme :
-
-> *"surveille les prix sur la page homme de Zalando"*
-
-Et il :
-1. 🔍 Identifie automatiquement l'URL correcte (`https://www.zalando.fr/homme`)
-2. 🕷️ Scrape le site (même les sites JavaScript lourds) - 56,509 caractères extraits
-3. 🔄 Compare avec la version précédente (diff intelligent avec difflib)
-4. 📊 Stocke l'historique dans Google Sheets
-5. 📧 Envoie une alerte email si changement > seuil défini (5.0% détecté)
-
-## 🏗️ Architecture
+## Architecture
 
 ```
 monitor_agent/
-├── main.py                      # Orchestrateur principal
+├── main.py                      # Main orchestrator
 ├── config/
-│   ├── settings.py             # Configuration centralisée
-│   ├── sites.yaml              # Liste des sites à surveiller
-│   ├── .env                    # Variables d'environnement (à créer)
-│   └── .env.example            # Template de configuration
+│   ├── settings.py             # Centralized configuration
+│   ├── sites.yaml              # List of sites to monitor
+│   ├── .env                    # Environment variables (to create)
+│   └── .env.example            # Configuration template
 ├── src/
 │   ├── modules/
-│   │   ├── ai_agent.py         # Parsing d'instructions (Groq LLM)
-│   │   ├── firecrawl_scraper.py # Scraping web (Firecrawl API)
-│   │   ├── content_comparator.py # Détection de changements
-│   │   ├── sheets_manager.py   # Gestion Google Sheets
-│   │   └── gmail_notifier.py   # Notifications email
+│   │   ├── ai_agent.py         # Instruction parsing (Groq LLM)
+│   │   ├── firecrawl_scraper.py # Web scraping (Firecrawl API)
+│   │   ├── content_comparator.py # Change detection
+│   │   ├── sheets_manager.py   # Google Sheets management
+│   │   └── gmail_notifier.py   # Email notifications
 │   └── utils/
-│       └── logger.py           # Système de logging
-└── tests/                      # Tests unitaires
+│       └── logger.py           # Logging system
+└── tests/                      # Unit tests
 
 ```
 
-## ⚙️ Prérequis
+## Prerequisites
 
 - Python 3.9+
-- Compte Google Cloud (pour Sheets API)
-- Compte Gmail avec App Password
-- Clés API : Groq, Firecrawl
+- Google Cloud account (for Sheets API)
+- Gmail account with App Password
+- API Keys: Groq, Firecrawl
 
-## 🚀 Installation
+## Installation
 
-### 1. Cloner le projet
+### 1. Clone the project
 
 ```bash
 git clone <repository_url>
 cd monitor_agent
 ```
 
-### 2. Créer l'environnement virtuel
+### 2. Create virtual environment
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate  # macOS/Linux
-# ou
+# or
 .\venv\Scripts\activate   # Windows
 ```
 
-### 3. Installer les dépendances
+### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configuration Google Sheets API
+### 4. Google Sheets API Configuration
 
-#### a) Créer un projet Google Cloud
+#### a) Create a Google Cloud project
 
-1. Aller sur [Google Cloud Console](https://console.cloud.google.com)
-2. Créer un nouveau projet
-3. Activer l'API Google Sheets :
-   - Menu : "APIs & Services" → "Enable APIs and Services"
-   - Rechercher "Google Sheets API" → Enable
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project
+3. Enable Google Sheets API:
+   - Menu: "APIs & Services" → "Enable APIs and Services"
+   - Search "Google Sheets API" → Enable
 
-#### b) Créer un compte de service
+#### b) Create a service account
 
-1. Menu : "APIs & Services" → "Credentials"
-2. Cliquer "Create Credentials" → "Service Account"
-3. Nommer le compte (ex: `monitor-agent`)
-4. Créer une clé JSON :
-   - Cliquer sur le compte créé
-   - Onglet "Keys" → "Add Key" → "Create new key" → JSON
-5. Télécharger et sauvegarder le fichier comme `credentials.json` à la racine du projet
+1. Menu: "APIs & Services" → "Credentials"
+2. Click "Create Credentials" → "Service Account"
+3. Name the account (e.g., `monitor-agent`)
+4. Create a JSON key:
+   - Click on the created account
+   - "Keys" tab → "Add Key" → "Create new key" → JSON
+5. Download and save the file as `credentials.json` at the project root
 
-#### c) Créer et partager une Google Sheet
+#### c) Create and share a Google Sheet
 
-1. Créer une nouvelle [Google Sheet](https://sheets.google.com)
-2. Copier l'ID de la sheet depuis l'URL :
+1. Create a new [Google Sheet](https://sheets.google.com)
+2. Copy the sheet ID from the URL:
    ```
    https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit
    ```
-3. Partager la sheet avec l'email du service account (dans `credentials.json`)
-   - Clic droit → Partager
-   - Coller l'email du service account
-   - Donner les droits "Éditeur"
+3. Share the sheet with the service account email (from `credentials.json`)
+   - Right-click → Share
+   - Paste the service account email
+   - Grant "Editor" permissions
 
-### 5. Configuration Gmail App Password
+### 5. Gmail App Password Configuration
 
-#### a) Activer la validation en 2 étapes
+#### a) Enable 2-step verification
 
-1. Aller sur [Compte Google](https://myaccount.google.com)
-2. Sécurité → Validation en 2 étapes → Activer
+1. Go to [Google Account](https://myaccount.google.com)
+2. Security → 2-Step Verification → Enable
 
-#### b) Générer un App Password
+#### b) Generate an App Password
 
-1. Sécurité → Validation en 2 étapes → Mots de passe d'application
-2. Créer un nouveau mot de passe :
-   - Application : "Mail"
-   - Appareil : "Autre" → "Monitor Agent"
-3. Copier le mot de passe généré (16 caractères)
+1. Security → 2-Step Verification → App passwords
+2. Create a new password:
+   - Application: "Mail"
+   - Device: "Other" → "Monitor Agent"
+3. Copy the generated password (16 characters)
 
-### 6. Configuration des variables d'environnement
+### 6. Environment variables configuration
 
 ```bash
 cp config/.env.example config/.env
 ```
 
-Éditer `config/.env` avec vos valeurs :
+Edit `config/.env` with your values:
 
 ```env
-# Groq API (LLM pour parsing d'instructions)
+# Groq API (LLM for instruction parsing)
 GROQ_API_KEY=gsk_...
 
-# Firecrawl API (Scraping web)
+# Firecrawl API (Web scraping)
 FIRECRAWL_API_KEY=fc-...
 
 # Google Sheets
@@ -173,27 +152,27 @@ GOOGLE_CREDENTIALS_FILE=credentials.json
 GOOGLE_SHEET_ID=1DXPcaCriAUVmS7y2pWkEsfJ6MPtSM_ixv0AbZbjxjfs
 
 # Gmail
-GMAIL_SENDER_EMAIL=votre-email@gmail.com
-GMAIL_RECIPIENT_EMAIL=destinataire@gmail.com
+GMAIL_SENDER_EMAIL=your-email@gmail.com
+GMAIL_RECIPIENT_EMAIL=recipient@gmail.com
 GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
 ```
 
-### 7. Configuration des sites à surveiller
+### 7. Sites to monitor configuration
 
-Éditer `config/sites.yaml` :
+Edit `config/sites.yaml`:
 
 ```yaml
 sites:
-  - instruction: "surveille les prix sur la page homme de Zalando"
+  - instruction: "monitor prices on Zalando men's page"
     schedule: "daily 10:00"
     active: true
     threshold: 1.0
     tags:
       - pricing
       - ecommerce
-    notes: "Surveillance des prix mode homme"
+    notes: "Men's fashion price monitoring"
 
-  - instruction: "monitore le blog TechCrunch pour nouveaux articles sur l'IA"
+  - instruction: "monitor TechCrunch blog for new AI articles"
     schedule: "twice-daily"
     active: false
     threshold: 5.0
@@ -202,156 +181,165 @@ sites:
       - tech
 ```
 
-**Paramètres :**
-- `instruction` : Description en langage naturel (parsée par l'AI Agent)
-- `schedule` : Fréquence (pour automatisation future)
-- `active` : `true` pour activer la surveillance
-- `threshold` : Seuil de changement (%) pour déclencher une notification
-- `tags` : Labels pour catégorisation
-- `notes` : Notes additionnelles
+**Parameters:**
+- `instruction`: Natural language description (parsed by AI Agent)
+- `schedule`: Frequency (for future automation)
+- `active`: `true` to enable monitoring
+- `threshold`: Change threshold (%) to trigger notification
+- `tags`: Labels for categorization
+- `notes`: Additional notes
 
-## 📖 Utilisation
+## Usage
 
-### Lancer une surveillance
+### Run monitoring
 
 ```bash
 python3 main.py
 ```
 
-**Workflow :**
-1. ✅ Initialisation des modules (Sheets, Gmail)
-2. ✅ Chargement de `sites.yaml`
-3. ✅ Pour chaque site actif :
-   - Parse l'instruction → URL
-   - Scrape le contenu
-   - Calcule le hash MD5
-   - Enregistre dans Google Sheets
-   - Compare avec la version précédente
-   - Envoie un email si changement > seuil
+**Workflow:**
 
-### Consulter les logs
+1. Module initialization (Sheets, Gmail)
+2. Loading `sites.yaml`
+3. For each active site:
+   - Parse instruction → URL
+   - Scrape content
+   - Calculate MD5 hash
+   - Save to Google Sheets
+   - Compare with previous version
+   - Send email if change > threshold
 
-Les logs sont dans Google Sheets avec 2 onglets :
-- **Log** : Historique de tous les scrapings
-- **Comparison** : Historique des comparaisons et changements détectés
+### View logs
 
-### Format de l'email de notification
+Logs are in Google Sheets with 2 tabs:
 
-Email HTML avec :
-- 🎨 En-tête avec gradient coloré
-- 🏷️ Badge de sévérité (Normal/Modéré/Important/Critique)
-- 📊 Statistiques des changements (lignes ajoutées/supprimées/modifiées)
-- 📝 Résumé du diff
-- 🔗 Lien vers le site surveillé
-- 📱 Design responsive
+- **Log**: History of all scrapings
+- **Comparison**: History of comparisons and detected changes
 
-## 🧪 Tests
+### Email notification format
 
-### Lancer tous les tests
+HTML email with:
+
+- Header with colored gradient
+- Severity badge (Normal/Moderate/Important/Critical)
+- Change statistics (added/removed/modified lines)
+- Diff summary
+- Link to monitored site
+- Responsive design
+
+## Tests
+
+### Run all tests
 
 ```bash
-# Tests AI Agent
+# AI Agent tests
 python3 tests/test_ai_agent.py
 
-# Tests Content Comparator
+# Content Comparator tests
 python3 tests/test_content_comparator.py
 
-# Tests Sheets Manager
+# Sheets Manager tests
 python3 tests/test_sheets_manager.py
 
-# Tests Gmail Notifier
+# Gmail Notifier tests
 python3 tests/test_gmail_notifier.py
 ```
 
-## 🔧 Configuration avancée
+## Advanced Configuration
 
-### Ajuster la sensibilité de détection
+### Adjust detection sensitivity
 
-Dans `sites.yaml`, modifier le `threshold` :
-- `0.1` : Très sensible (changements minimes)
-- `1.0` : Sensibilité normale
-- `5.0` : Peu sensible (changements majeurs uniquement)
+In `sites.yaml`, modify the `threshold`:
 
-### Personnaliser les templates d'email
+- `0.1`: Very sensitive (minor changes)
+- `1.0`: Normal sensitivity
+- `5.0`: Low sensitivity (major changes only)
 
-Les templates sont dans `src/modules/gmail_notifier.py` :
-- `_create_html_template()` : Email HTML
-- `_create_text_fallback()` : Version texte
+### Customize email templates
 
-### Logger personnalisé
+Templates are in `src/modules/gmail_notifier.py`:
 
-Configuration dans `src/utils/logger.py` :
+- `_create_html_template()`: HTML email
+- `_create_text_fallback()`: Text version
+
+### Custom logger
+
+Configuration in `src/utils/logger.py`:
+
 ```python
 LOG_LEVEL = "INFO"  # DEBUG, INFO, WARNING, ERROR
 LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 ```
 
-## 📊 Structure des données
+## Data Structure
 
-### Google Sheets - Onglet "Log"
+### Google Sheets - "Log" Tab
 
 | Timestamp | URL | Instruction | Status | Content Hash | Content Length | Error | Metadata |
 |-----------|-----|-------------|--------|--------------|----------------|-------|----------|
-| 2025-11-06T10:30:00 | https://... | surveille... | success | a1b2c3... | 56509 | | {...} |
+| 2025-11-06T10:30:00 | https://... | monitor... | success | a1b2c3... | 56509 | | {...} |
 
-### Google Sheets - Onglet "Comparison"
+### Google Sheets - "Comparison" Tab
 
-| Timestamp | URL | Changements | Score % | Lignes + | Lignes - | Lignes Δ | Seuil % | Résumé |
-|-----------|-----|-------------|---------|----------|----------|----------|---------|--------|
-| 2025-11-06T10:30:00 | https://... | OUI | 5.23% | 12 | 5 | 8 | 1.0% | Prix modifiés... |
+| Timestamp | URL | Changes | Score % | Lines + | Lines - | Lines Δ | Threshold % | Summary |
+|-----------|-----|---------|---------|---------|---------|---------|-------------|---------|
+| 2025-11-06T10:30:00 | https://... | YES | 5.23% | 12 | 5 | 8 | 1.0% | Prices modified... |
 
-## 🤝 Contribution
+## Contributing
 
-Les contributions sont les bienvenues ! Quelques idées :
-- 🔄 Automatisation avec APScheduler
-- 🌐 Support Slack/Discord
-- 📈 Dashboard web
-- 🔔 Support multi-destinataires
-- 📄 Export PDF des rapports
+Contributions are welcome! Some ideas:
 
-## 📝 Licence
+- Automation with APScheduler
+- Slack/Discord support
+- Web dashboard
+- Multi-recipient support
+- PDF report export
+
+## License
 
 MIT License
 
-## 🐛 Dépannage
+## Troubleshooting
 
-### Erreur d'authentification Google
+### Google authentication error
 
-```
+```text
 google.auth.exceptions.DefaultCredentialsError
 ```
 
-**Solution :** Vérifier que `credentials.json` existe et que le chemin dans `.env` est correct.
+**Solution:** Verify that `credentials.json` exists and the path in `.env` is correct.
 
-### Email non envoyé
+### Email not sent
 
-```
+```text
 SMTPAuthenticationError: Username and Password not accepted
 ```
 
-**Solution :** 
-1. Vérifier que la validation en 2 étapes est activée
-2. Régénérer un App Password
-3. Vérifier que `GMAIL_APP_PASSWORD` dans `.env` est correct (sans espaces)
+**Solution:**
+
+1. Verify that 2-step verification is enabled
+2. Regenerate an App Password
+3. Verify that `GMAIL_APP_PASSWORD` in `.env` is correct (no spaces)
 
 ### Firecrawl timeout
 
-```
+```text
 ERR_TIMED_OUT
 ```
 
-**Solution :** Le site peut être inaccessible ou bloquer les scrapers. Tester avec un autre site ou vérifier l'URL.
+**Solution:** The site may be inaccessible or blocking scrapers. Test with another site or verify the URL.
 
-### Hash identique malgré changements
+### Identical hash despite changes
 
-**Solution :** Le contenu dynamique (pub, horloge) peut varier. Augmenter le `threshold` ou filtrer le contenu avant comparaison.
+**Solution:** Dynamic content (ads, clock) may vary. Increase the `threshold` or filter content before comparison.
 
-## 📞 Support
+## Support
 
-Pour toute question ou problème :
-- 📧 Email : votre-email@example.com
-- 🐛 Issues : [GitHub Issues](repository_url/issues)
+For any questions or issues:
+
+- Email: your-email@example.com
+- Issues: [GitHub Issues](repository_url/issues)
 
 ---
 
-**Fait avec ❤️ par [Votre Nom]**
+**Made with passion**

@@ -1,163 +1,171 @@
-# Configuration Google Cloud (Sheets & Gmail)
+# Google Cloud Configuration (Sheets & Gmail)
 
-## 🎯 Objectif
-Configurer l'accès à Google Sheets API et Gmail API pour le projet Monitor Agent.
+## Objective
 
----
-
-## 📋 Étapes de configuration
-
-### 1. Créer un projet Google Cloud
-
-1. Aller sur [Google Cloud Console](https://console.cloud.google.com)
-2. Cliquer sur **"Sélectionner un projet"** → **"Nouveau projet"**
-3. Nommer le projet : `monitor-agent` (ou autre nom)
-4. Cliquer sur **"Créer"**
+Configure access to Google Sheets API and Gmail API for the Monitor Agent project.
 
 ---
 
-### 2. Activer les APIs nécessaires
+## Configuration Steps
+
+### 1. Create a Google Cloud project
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Click on **"Select a project"** → **"New project"**
+3. Name the project: `monitor-agent` (or another name)
+4. Click on **"Create"**
+
+---
+
+### 2. Enable required APIs
 
 #### Google Sheets API
-1. Dans le menu latéral → **APIs et services** → **Bibliothèque**
-2. Rechercher : `Google Sheets API`
-3. Cliquer sur **"Activer"**
+
+1. In the side menu → **APIs & Services** → **Library**
+2. Search: `Google Sheets API`
+3. Click on **"Enable"**
 
 #### Gmail API
-1. Dans la même bibliothèque, rechercher : `Gmail API`
-2. Cliquer sur **"Activer"**
+
+1. In the same library, search: `Gmail API`
+2. Click on **"Enable"**
 
 ---
 
-### 3. Créer un compte de service (Service Account)
+### 3. Create a Service Account
 
-1. Dans le menu latéral → **APIs et services** → **Identifiants**
-2. Cliquer sur **"Créer des identifiants"** → **"Compte de service"**
-3. Remplir les informations :
-   - **Nom** : `monitor-agent-service`
-   - **ID** : (généré automatiquement)
-   - **Description** : `Service account pour Monitor Agent`
-4. Cliquer sur **"Créer et continuer"**
+1. In the side menu → **APIs & Services** → **Credentials**
+2. Click on **"Create credentials"** → **"Service account"**
+3. Fill in the information:
+   - **Name**: `monitor-agent-service`
+   - **ID**: (automatically generated)
+   - **Description**: `Service account for Monitor Agent`
+4. Click on **"Create and continue"**
 
-5. **Rôle** : Sélectionner `Éditeur` (ou `Propriétaire` pour plus de permissions)
-6. Cliquer sur **"Continuer"** puis **"OK"**
+5. **Role**: Select `Editor` (or `Owner` for more permissions)
+6. Click on **"Continue"** then **"Done"**
 
 ---
 
-### 4. Générer la clé JSON
+### 4. Generate JSON key
 
-1. Dans la liste des comptes de service, cliquer sur celui que vous venez de créer
-2. Aller dans l'onglet **"Clés"**
-3. Cliquer sur **"Ajouter une clé"** → **"Créer une clé"**
-4. Choisir le format **JSON**
-5. Cliquer sur **"Créer"**
-6. Le fichier JSON sera téléchargé automatiquement
+1. In the service account list, click on the one you just created
+2. Go to the **"Keys"** tab
+3. Click on **"Add key"** → **"Create new key"**
+4. Choose **JSON** format
+5. Click on **"Create"**
+6. The JSON file will be automatically downloaded
 
-7. **Renommer le fichier** en `credentials.json`
-8. **Déplacer le fichier** à la racine du projet :
+7. **Rename the file** to `credentials.json`
+8. **Move the file** to the project root:
    ```bash
-   mv ~/Downloads/monitor-agent-*.json /chemin/vers/monitor_agent/credentials.json
+   mv ~/Downloads/monitor-agent-*.json /path/to/monitor_agent/credentials.json
    ```
 
 ---
 
-### 5. Créer un Google Sheet
+### 5. Create a Google Sheet
 
-1. Aller sur [Google Sheets](https://sheets.google.com)
-2. Créer un nouveau document : **"Document vierge"**
-3. Nommer le document : `Monitor Agent - Logs`
+1. Go to [Google Sheets](https://sheets.google.com)
+2. Create a new document: **"Blank spreadsheet"**
+3. Name the document: `Monitor Agent - Logs`
 
-4. **Récupérer l'ID du Sheet** :
-   - Dans l'URL du document :
+4. **Get the Sheet ID**:
+   - In the document URL:
      ```
      https://docs.google.com/spreadsheets/d/1ABC123XYZ456/edit
                                          ^^^^^^^^^^^^^^^^
-                                         Ceci est l'ID
+                                         This is the ID
      ```
-   - Copier cet ID (entre `/d/` et `/edit`)
+   - Copy this ID (between `/d/` and `/edit`)
 
 ---
 
-### 6. Partager le Sheet avec le compte de service
+### 6. Share the Sheet with the service account
 
-⚠️ **IMPORTANT** : Le compte de service a besoin d'accès au Sheet !
+**IMPORTANT**: The service account needs access to the Sheet!
 
-1. Ouvrir le fichier `credentials.json`
-2. Chercher la ligne `"client_email"` :
+1. Open the `credentials.json` file
+2. Look for the `"client_email"` line:
    ```json
    "client_email": "monitor-agent-service@project-id.iam.gserviceaccount.com"
    ```
-3. Copier cette adresse email
+3. Copy this email address
 
-4. Dans votre Google Sheet :
-   - Cliquer sur **"Partager"** (en haut à droite)
-   - Coller l'email du compte de service
-   - Définir le rôle : **"Éditeur"**
-   - **Décocher** "Notifier les utilisateurs"
-   - Cliquer sur **"Envoyer"**
+4. In your Google Sheet:
+   - Click on **"Share"** (top right)
+   - Paste the service account email
+   - Set the role: **"Editor"**
+   - **Uncheck** "Notify users"
+   - Click on **"Send"**
 
 ---
 
-### 7. Configurer le fichier .env
+### 7. Configure the .env file
 
-Modifier votre `.env` :
+Modify your `.env`:
 
 ```bash
 # Google Sheets
-GOOGLE_SHEET_ID=1ABC123XYZ456  # L'ID copié à l'étape 5
+GOOGLE_SHEET_ID=1ABC123XYZ456  # The ID copied in step 5
 GOOGLE_CREDENTIALS_FILE=credentials.json
 
 # Gmail
-GMAIL_SENDER_EMAIL=votre_email@gmail.com
-GMAIL_RECIPIENT_EMAIL=destinataire@gmail.com
+GMAIL_SENDER_EMAIL=your_email@gmail.com
+GMAIL_RECIPIENT_EMAIL=recipient@gmail.com
 ```
 
 ---
 
-## ✅ Vérification de la configuration
+## Configuration Verification
 
-Pour tester que tout fonctionne :
+To test that everything works:
 
 ```bash
-# Activer le venv
+# Activate venv
 source venv/bin/activate
 
-# Lancer le test Sheets
+# Run Sheets Manager test
 python3 test_sheets_manager.py
 ```
 
-### Résultat attendu :
+### Expected result
+
 ```
-📊 Test Sheets Manager
-✅ Authentification réussie!
-✅ Onglets initialisés!
-✅ Log de scraping enregistré!
-✅ Log de comparaison enregistré!
+Sheets Manager Test
+Authentication successful!
+Tabs initialized!
+Scraping log saved!
+Comparison log saved!
 ```
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
-### Erreur : "credentials.json not found"
-- Vérifier que le fichier `credentials.json` est bien à la racine du projet
-- Vérifier le chemin dans `.env` : `GOOGLE_CREDENTIALS_FILE=credentials.json`
+### Error: "credentials.json not found"
 
-### Erreur : "Insufficient Permission"
-- Vérifier que vous avez bien **partagé le Sheet** avec l'email du compte de service
-- Vérifier que le rôle est **"Éditeur"** (pas "Lecteur")
+- Verify that the `credentials.json` file is at the project root
+- Verify the path in `.env`: `GOOGLE_CREDENTIALS_FILE=credentials.json`
 
-### Erreur : "API not enabled"
-- Vérifier que Google Sheets API est activée dans Google Cloud Console
-- Attendre quelques minutes après l'activation
+### Error: "Insufficient Permission"
 
-### Erreur : "Invalid credentials"
-- Régénérer la clé JSON (étape 4)
-- Remplacer l'ancien fichier `credentials.json`
+- Verify that you have **shared the Sheet** with the service account email
+- Verify that the role is **"Editor"** (not "Viewer")
+
+### Error: "API not enabled"
+
+- Verify that Google Sheets API is enabled in Google Cloud Console
+- Wait a few minutes after enabling
+
+### Error: "Invalid credentials"
+
+- Regenerate the JSON key (step 4)
+- Replace the old `credentials.json` file
 
 ---
 
-## 📚 Ressources
+## Resources
 
 - [Google Sheets API Documentation](https://developers.google.com/sheets/api)
 - [Service Accounts Guide](https://cloud.google.com/iam/docs/service-accounts)
@@ -165,7 +173,7 @@ python3 test_sheets_manager.py
 
 ---
 
-## 🎓 Note
+## Note
 
-Pour **Gmail API**, vous utiliserez OAuth2 (différent du compte de service).
-Le module Gmail Notifier sera créé dans la prochaine étape et nécessitera une configuration supplémentaire.
+For **Gmail API**, you will use OAuth2 (different from service account).
+The Gmail Notifier module will be created in the next step and will require additional configuration.

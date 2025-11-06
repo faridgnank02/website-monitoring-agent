@@ -1,11 +1,10 @@
-# 📐 Documentation Technique - Monitor Agent
+# Technical Documentation - Monitor Agent
 
-## Vue d'ensemble
+## Overview
 
-Monitor Agent est un système de surveillance automatisé de sites web conçu autour d'une architecture modulaire. Le système utilise 5 modules indépendants orchestrés par `main.py`.
+This project is an automated website monitoring system built around a modular architecture. The system uses 5 independent modules orchestrated by `main.py`.
 
-
-## Architecture Globale
+## Global Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -30,67 +29,67 @@ Monitor Agent est un système de surveillance automatisé de sites web conçu au
           └────────────┘           └────────────┘
 ```
 
-## Modules Détaillés
+## Detailed Modules
 
-### 1. AI Agent (244 lignes)
+### 1. AI Agent (244 lines)
 
-**Rôle :** Parse les instructions en langage naturel et extrait l'URL + éléments à surveiller.
+**Role:** Parses natural language instructions and extracts URL + elements to monitor.
 
-**Technologies :**
+**Technologies:**
 - Groq API (llama-3.1-8b-instant)
 - JSON Schema validation
 
-**Fonction principale :**
+**Main function:**
 ```python
 def parse_instruction(instruction: str) -> ParsedInstruction
 ```
 
-**Input :**
+**Input:**
 ```
-"surveille les prix sur la page homme de Zalando"
+"monitor prices on Zalando men's page"
 ```
 
-**Output :**
+**Output:**
 ```python
 ParsedInstruction(
     url="https://www.zalando.fr/homme",
-    elements_to_watch=["prix"],
+    elements_to_watch=["prices"],
     success=True
 )
 ```
 
-**Prompt Engineering :**
-- System prompt avec exemples few-shot
-- Output format JSON strict
-- Validation avec Pydantic
+**Prompt Engineering:**
+- System prompt with few-shot examples
+- Strict JSON output format
+- Pydantic validation
 
-**Gestion d'erreurs :**
-- Retry automatique (3 tentatives)
-- Fallback si parsing JSON échoue
-- Logging détaillé
+**Error handling:**
+- Automatic retry (3 attempts)
+- Fallback if JSON parsing fails
+- Detailed logging
 
 ---
 
-### 2. Firecrawl Scraper (202 lignes)
+### 2. Firecrawl Scraper (202 lines)
 
-**Rôle :** Scrape le contenu web avec support JavaScript.
+**Role:** Scrapes web content with JavaScript support.
 
-**Technologies :**
+**Technologies:**
 - Firecrawl API
-- Retry logic avec exponential backoff
+- Retry logic with exponential backoff
 
-**Fonction principale :**
+**Main function:**
 ```python
 def scrape_url(url: str, max_retries: int = 3) -> ScrapedContent
 ```
 
-**Features :**
-- Support JavaScript (pages dynamiques)
-- Extraction markdown + HTML
-- Métadonnées (titre, description, langue)
-- Timeout configurable
+**Features:**
+- JavaScript support (dynamic pages)
+- Markdown + HTML extraction
+- Metadata (title, description, language)
+- Configurable timeout
 
-**Output :**
+**Output:**
 ```python
 ScrapedContent(
     url="https://example.com",
@@ -99,43 +98,43 @@ ScrapedContent(
     metadata=DocumentMetadata(
         title="Page title",
         description="...",
-        language="fr"
+        language="en"
     ),
     success=True
 )
 ```
 
-**Retry Strategy :**
-1. Tentative 1 : timeout 30s
-2. Tentative 2 : timeout 60s
-3. Tentative 3 : timeout 90s
+**Retry Strategy:**
+1. Attempt 1: 30s timeout
+2. Attempt 2: 60s timeout
+3. Attempt 3: 90s timeout
 
 ---
 
-### 3. Content Comparator (347 lignes)
+### 3. Content Comparator (347 lines)
 
-**Rôle :** Compare deux versions de contenu et détecte les changements.
+**Role:** Compares two content versions and detects changes.
 
-**Technologies :**
-- **difflib** (Python standard library) - Calcul de différences et similarité
-- Algorithme de filtrage personnalisé pour contenu dynamique
-- Scoring basé sur le nombre de lignes modifiées
+**Technologies:**
+- **difflib** (Python standard library) - Diff calculation and similarity
+- Custom filtering algorithm for dynamic content
+- Scoring based on number of modified lines
 
-**Fonction principale :**
+**Main function:**
 ```python
 def compare_content(old_content: str, new_content: str) -> ComparisonResult
 ```
 
-**Métriques calculées :**
-- **change_score** : % de changement (0-100%)
-- **added_lines** : Nombre de lignes ajoutées
-- **removed_lines** : Nombre de lignes supprimées
-- **modified_lines** : Nombre de lignes modifiées
-- **similarity_ratio** : Score de similarité (0-1) via `difflib.SequenceMatcher`
+**Calculated metrics:**
+- **change_score**: Change percentage (0-100%)
+- **added_lines**: Number of added lines
+- **removed_lines**: Number of removed lines
+- **modified_lines**: Number of modified lines
+- **similarity_ratio**: Similarity score (0-1) via `difflib.SequenceMatcher`
 
-**Utilisation de difflib :**
+**difflib usage:**
 
-1. **`difflib.unified_diff()`** - Génère un diff au format unified (comme `git diff`)
+1. **`difflib.unified_diff()`** - Generates unified format diff (like `git diff`)
    ```python
    diff = list(difflib.unified_diff(
        lines_old,
@@ -143,66 +142,66 @@ def compare_content(old_content: str, new_content: str) -> ComparisonResult
        lineterm=''
    ))
    ```
-   Utilisé pour générer un résumé lisible des changements.
+   Used to generate a readable change summary.
 
-2. **`difflib.SequenceMatcher()`** - Calcule la similarité entre deux chaînes
+2. **`difflib.SequenceMatcher()`** - Calculates similarity between two strings
    ```python
    ratio = difflib.SequenceMatcher(None, str1, str2).ratio()
-   # ratio = 0.85 signifie 85% de similarité
+   # ratio = 0.85 means 85% similarity
    ```
-   Utilisé pour détecter les lignes modifiées (similaires mais pas identiques).
+   Used to detect modified lines (similar but not identical).
 
-**Algorithme :**
+**Algorithm:**
 ```python
-# 1. Normalisation
+# 1. Normalization
 old_normalized = normalize_text(old_content)
 new_normalized = normalize_text(new_content)
 
-# 2. Filtrage contenu dynamique (timestamps, sessions, etc.)
+# 2. Dynamic content filtering (timestamps, sessions, etc.)
 old_filtered = filter_dynamic_content(old_normalized)
 new_filtered = filter_dynamic_content(new_normalized)
 
-# 3. Détection changements
+# 3. Change detection
 added = [line for line in new_filtered if line not in old_filtered]
 removed = [line for line in old_filtered if line not in new_filtered]
 
-# 4. Détection modifications (difflib.SequenceMatcher)
+# 4. Modification detection (difflib.SequenceMatcher)
 modified = []
 for old_line in removed:
     for new_line in added:
         if difflib.SequenceMatcher(None, old_line, new_line).ratio() >= 0.7:
             modified.append((old_line, new_line))
 
-# 5. Calcul du score
+# 5. Score calculation
 change_score = (len(added) + len(removed) + len(modified)) / total_lines * 100
 ```
 
-**Normalisation :**
-- Suppression espaces multiples
-- Lowercase (optionnel)
-- Suppression lignes vides
+**Normalization:**
+- Multiple space removal
+- Lowercase (optional)
+- Empty line removal
 
-**Filtrage dynamique :**
-Ignore les patterns qui changent fréquemment :
+**Dynamic filtering:**
+Ignores patterns that change frequently:
 - Dates (`2025-11-06`, `06/11/2025`)
-- Heures (`10:30:45`)
+- Times (`10:30:45`)
 - Timestamps (`Updated: ...`, `Last modified: ...`)
 - Session IDs
-- Compteurs de visiteurs
-- Copyright avec années
+- Visitor counters
+- Copyrights with years
 
 ---
 
-### 4. Sheets Manager (606 lignes)
+### 4. Sheets Manager (606 lines)
 
-**Rôle :** Gestion de l'historique dans Google Sheets.
+**Role:** History management in Google Sheets.
 
-**Technologies :**
+**Technologies:**
 - Google Sheets API v4
 - Service Account authentication
 - Batch operations
 
-**Classes principales :**
+**Main classes:**
 
 #### ScrapingLog
 ```python
@@ -211,7 +210,7 @@ class ScrapingLog:
     timestamp: str
     url: str
     instruction: str
-    status: str  # "success" ou "error"
+    status: str  # "success" or "error"
     content_hash: str
     content_length: int
     error_message: Optional[str] = None
@@ -236,182 +235,161 @@ class ComparisonLog:
     new_hash: str
 ```
 
-**Méthodes principales :**
-- `authenticate()` : Authentification service account
-- `initialize_sheets()` : Création onglets Log/Comparison
-- `log_scraping(log)` : Enregistrer un scraping
-- `log_comparison(log)` : Enregistrer une comparaison
-- `get_last_scraping(url)` : Récupérer dernier scraping
-- `get_scraping_history(url, limit)` : Historique complet
+**Main methods:**
+- `authenticate()`: Service account authentication
+- `initialize_sheets()`: Create Log/Comparison tabs
+- `log_scraping(log)`: Record a scraping
+- `log_comparison(log)`: Record a comparison
+- `get_last_scraping(url)`: Retrieve last scraping
+- `get_scraping_history(url, limit)`: Complete history
 
-**Optimisations :**
-- Batch writes (append au lieu d'insert)
-- Cache des onglets existants
-- Formatting automatique (headers en gras, background gris)
+**Optimizations:**
+- Batch writes (append instead of insert)
+- Existing tab cache
+- Automatic formatting (bold headers, gray background)
 
 ---
 
-### 5. Gmail Notifier (412 lignes)
+### 5. Gmail Notifier (412 lines)
 
-**Rôle :** Envoi de notifications email HTML.
+**Role:** HTML email notifications.
 
-**Technologies :**
+**Technologies:**
 - SMTP (Gmail)
 - HTML/CSS (email templates)
 - TLS encryption
 
-**Template HTML (6208 caractères) :**
+**HTML Template (6208 characters):**
 
 ```html
 <!DOCTYPE html>
 <html>
 <head>
   <style>
-    /* Responsive design */
-    /* Gradient header */
-    /* Badge coloré (Normal/Modéré/Important/Critique) */
-    /* Progress bars */
+    /* Responsive email styles */
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h1>🚨 Changement Détecté</h1>
-    </div>
-    
-    <div class="badge severity-[level]">
-      [Niveau de sévérité]
-    </div>
-    
-    <div class="stats">
-      <!-- Statistiques des changements -->
-    </div>
-    
-    <div class="diff-summary">
-      <!-- Résumé du diff -->
-    </div>
-    
-    <div class="footer">
-      <!-- Liens et timestamp -->
-    </div>
+    <!-- Notification content -->
   </div>
 </body>
 </html>
 ```
 
-**Niveaux de sévérité :**
-- **Normal** (< 5%) : Badge bleu
-- **Modéré** (5-15%) : Badge orange
-- **Important** (15-30%) : Badge rouge
-- **Critique** (> 30%) : Badge rouge foncé
+**Severity levels:**
+- **Normal** (< 5%): Blue badge
+- **Moderate** (5-15%): Orange badge
+- **Important** (15-30%): Red badge
+- **Critical** (> 30%): Dark red badge
 
-**Fallback texte (702 caractères) :**
-Version texte pour clients email sans support HTML.
+**Text fallback (702 characters):**
+Text version for email clients without HTML support.
 
-**Sécurité :**
-- App Password (pas de mot de passe principal)
+**Security:**
+- App Password (not main password)
 - TLS encryption
-- Validation des paramètres
+- Parameter validation
 
 ---
 
-## Workflow Complet
+## Complete Workflow
 
-### 1. Initialisation
+### 1. Initialization
 ```python
 agent = MonitorAgent()
-# - Initialise SheetsManager
-# - Initialise GmailNotifier
-# - Authentifie Google Sheets API
-# - Vérifie onglets Log/Comparison
+# - Initialize SheetsManager
+# - Initialize GmailNotifier
+# - Authenticate Google Sheets API
+# - Check Log/Comparison tabs
 ```
 
-### 2. Chargement Configuration
+### 2. Configuration Loading
 ```python
 sites = agent.load_sites_config()
 # - Parse sites.yaml
-# - Filtre sites actifs (active: true)
-# - Retourne liste de configs
+# - Filter active sites (active: true)
+# - Return list of configs
 ```
 
-### 3. Surveillance (par site)
+### 3. Monitoring (per site)
 ```python
 for site in sites:
     agent.monitor_site(site)
 ```
 
-**Étapes détaillées :**
+**Detailed steps:**
 
-#### 3.1 Parsing Instruction
+#### 3.1 Instruction Parsing
 ```python
 parsed = parse_instruction(instruction)
-# Input: "surveille les prix Zalando"
-# Output: url="https://www.zalando.fr", elements=["prix"]
+# Input: "monitor Zalando prices"
+# Output: url="https://www.zalando.fr", elements=["prices"]
 ```
 
 #### 3.2 Scraping
 ```python
 scraped = scrape_url(url)
-# - Appel Firecrawl API
-# - Extraction markdown + HTML
-# - Récupération métadonnées
+# - Call Firecrawl API
+# - Extract markdown + HTML
+# - Retrieve metadata
 ```
 
 #### 3.3 Hash Calculation
 ```python
 content_hash = hashlib.md5(scraped.markdown.encode('utf-8')).hexdigest()
-# Hash MD5 pour comparaison rapide
+# MD5 hash for quick comparison
 ```
 
-#### 3.4 Logging Scraping
+#### 3.4 Scraping Logging
 ```python
 sheets_manager.log_scraping(ScrapingLog(...))
-# Enregistre dans onglet "Log"
+# Record in "Log" tab
 ```
 
-#### 3.5 Récupération Historique
+#### 3.5 History Retrieval
 ```python
 history = sheets_manager.get_scraping_history(url, limit=2)
-previous = history[1]  # Avant-dernier (dernier = celui qu'on vient de créer)
+previous = history[1]  # Second-to-last (last = just created)
 ```
 
-#### 3.6 Comparaison
+#### 3.6 Comparison
 ```python
 if content_hash == previous_hash:
-    # Aucun changement
+    # No changes
     change_score = 0.0
 else:
-    # Changements détectés
-    comparison = compare_content(old_content, new_content)
+    # Changes detected
+    comparison = compare_content(previous_content, current_content)
     change_score = comparison.change_score
 ```
 
-#### 3.7 Logging Comparaison
+#### 3.7 Comparison Logging
 ```python
 sheets_manager.log_comparison(ComparisonLog(...))
-# Enregistre dans onglet "Comparison"
+# Record in "Comparison" tab
 ```
 
-#### 3.8 Notification (si changement > seuil)
+#### 3.8 Notification (if change > threshold)
 ```python
 if change_score > threshold:
     notification = ChangeNotification(...)
     gmail_notifier.send_notification(notification)
 ```
 
-### 4. Résumé
+### 4. Summary
 ```python
-# Affiche statistiques finales
-logger.info(f"Sites surveillés: {total}")
-logger.info(f"✅ Succès: {success}")
-logger.info(f"❌ Erreurs: {errors}")
+# Display final statistics
+logger.info(f"Sites monitored: {total}")
+logger.info(f"Success: {success}")
+logger.info(f"Errors: {errors}")
 ```
 
 ---
 
 ## Configuration
 
-### Variables d'environnement (.env)
+### Environment variables (.env)
 
 ```bash
 # Groq API
@@ -438,211 +416,210 @@ GMAIL_SMTP_PORT=587
 
 ```yaml
 sites:
-  - instruction: "surveille les prix Zalando"
+  - instruction: "monitor Zalando prices"
     schedule: "daily 10:00"
     active: true
     threshold: 1.0
     tags:
       - pricing
       - ecommerce
-    notes: "Surveillance quotidienne"
+    notes: "Price monitoring"
 ```
 
-**Paramètres :**
-- `instruction` : Langage naturel (parsé par AI Agent)
-- `schedule` : Pour future automatisation
-- `active` : Activation on/off
-- `threshold` : Seuil de changement (%)
-- `tags` : Catégorisation
-- `notes` : Documentation
+**Parameters:**
+- `instruction`: Natural language (parsed by AI Agent)
+- `schedule`: For future automation
+- `active`: On/off activation
+- `threshold`: Change threshold (%)
+- `tags`: Categorization
+- `notes`: Documentation
 
 ---
 
-## Structures de Données
+## Data Structures
 
-### Google Sheets - Onglet "Log"
+### Google Sheets - "Log" Tab
 
-| Colonne | Type | Description |
+| Column | Type | Description |
 |---------|------|-------------|
-| Timestamp | ISO 8601 | Date/heure du scraping |
-| URL | String | URL scrapée |
-| Instruction | String | Instruction originale |
+| Timestamp | ISO 8601 | Scraping date/time |
+| URL | String | Scraped URL |
+| Instruction | String | Original instruction |
 | Status | Enum | success/error |
-| Content Hash | MD5 | Hash du contenu |
-| Content Length | Integer | Taille en caractères |
-| Error | String | Message d'erreur (si échec) |
-| Metadata | JSON | Métadonnées additionnelles |
+| Content Hash | MD5 | Content hash |
+| Content Length | Integer | Size in characters |
+| Error | String | Error message (if failed) |
+| Metadata | JSON | Additional metadata |
 
-### Google Sheets - Onglet "Comparison"
+### Google Sheets - "Comparison" Tab
 
-| Colonne | Type | Description |
+| Column | Type | Description |
 |---------|------|-------------|
-| Timestamp | ISO 8601 | Date/heure de la comparaison |
-| URL | String | URL comparée |
-| Instruction | String | Instruction originale |
-| Changements | Boolean | OUI/NON |
-| Score % | Float | Score de changement |
-| Lignes + | Integer | Lignes ajoutées |
-| Lignes - | Integer | Lignes supprimées |
-| Lignes Δ | Integer | Lignes modifiées |
-| Seuil % | Float | Seuil configuré |
-| Résumé | String | Résumé textuel |
-| Hash Ancien | MD5 | Hash version précédente |
-| Hash Nouveau | MD5 | Hash version actuelle |
+| Timestamp | ISO 8601 | Comparison date/time |
+| URL | String | Compared URL |
+| Instruction | String | Original instruction |
+| Changes | Boolean | YES/NO |
+| Score % | Float | Change score |
+| Lines + | Integer | Added lines |
+| Lines - | Integer | Removed lines |
+| Lines Δ | Integer | Modified lines |
+| Threshold % | Float | Configured threshold |
+| Summary | String | Text summary |
+| Old Hash | MD5 | Previous version hash |
+| New Hash | MD5 | Current version hash |
 
 ---
 
-## Gestion des Erreurs
+## Error Management
 
-### Niveaux de gestion
+### Management levels
 
-**1. Module-level :**
-Chaque module gère ses propres erreurs :
-- Retry avec backoff (Firecrawl)
-- Fallback JSON parsing (AI Agent)
+**1. Module-level:**
+Each module handles its own errors:
+- Retry with backoff (Firecrawl)
+- JSON parsing fallback (AI Agent)
 - Connection retry (Sheets, Gmail)
 
-**2. Orchestrator-level :**
-`main.py` capture les exceptions :
+**2. Orchestrator-level:**
+`main.py` captures exceptions:
 ```python
 try:
     agent.monitor_site(site)
     success_count += 1
 except Exception as e:
-    logger.error(f"Erreur: {e}")
+    logger.error(f"Error: {e}")
     error_count += 1
-    continue  # Continue avec site suivant
+    continue  # Continue with next site
 ```
 
-**3. Logging :**
-Tous les modules utilisent le logger centralisé :
-- **INFO** : Opérations normales
-- **WARNING** : Changements détectés, situations non-critiques
-- **ERROR** : Échecs, exceptions
+**3. Logging:**
+All modules use centralized logger:
+- **INFO**: Normal operations
+- **WARNING**: Changes detected, non-critical situations
+- **ERROR**: Failures, exceptions
 
-### Stratégies de recovery
+### Recovery strategies
 
-**Firecrawl timeout :**
-1. Retry avec timeout augmenté
-2. Si 3 échecs → Log error dans Sheets
-3. Continue avec site suivant
+**Firecrawl timeout:**
+1. Retry with increased timeout
+2. If 3 failures → Log error in Sheets
+3. Continue with next site
 
-**Sheets API error :**
-1. Retry authentification
-2. Si échec → Skip logging (continue workflow)
-3. Notification envoyée quand même
+**Sheets API error:**
+1. Retry authentication
+2. If failure → Skip logging (continue workflow)
+3. Notification sent anyway
 
-**Gmail SMTP error :**
+**Gmail SMTP error:**
 1. Log error
-2. Continue (notification échouée mais workflow OK)
+2. Continue (notification failed but workflow OK)
 
 ---
 
 ## Performance
 
-### Temps d'exécution typiques
+### Typical execution times
 
-| Opération | Temps moyen | Remarques |
+| Operation | Average time | Notes |
 |-----------|-------------|-----------|
-| Parse instruction | 1-2s | Appel Groq API |
-| Scraping | 2-5s | Dépend du site |
-| Hash calculation | < 0.1s | MD5 très rapide |
+| Parse instruction | 1-2s | Groq API call |
+| Scraping | 2-5s | Depends on site |
+| Hash calculation | < 0.1s | MD5 very fast |
 | Sheets write | 0.5-1s | Batch operation |
 | Sheets read | 0.5-1s | Range query |
 | Email send | 1-2s | SMTP connection |
-| **Total par site** | **5-12s** | Variable |
+| **Total per site** | **5-12s** | Variable |
 
-### Optimisations possibles
+### Possible optimizations
 
-1. **Parallélisation :**
+1. **Parallelization:**
    ```python
-   # Surveiller plusieurs sites en parallèle
+   from concurrent.futures import ThreadPoolExecutor
+   
    with ThreadPoolExecutor(max_workers=3) as executor:
-       futures = [executor.submit(agent.monitor_site, site) 
-                  for site in sites]
+       executor.map(agent.monitor_site, sites)
    ```
 
-2. **Caching :**
+2. **Caching:**
    ```python
-   # Cache des résultats AI Agent (même instruction)
-   @lru_cache(maxsize=100)
-   def parse_instruction_cached(instruction: str):
-       return parse_instruction(instruction)
+   @lru_cache(maxsize=128)
+   def parse_instruction(instruction: str):
+       # Avoid re-parsing same instruction
    ```
 
-3. **Batch Sheets operations :**
+3. **Batch Sheets operations:**
    ```python
-   # Écrire plusieurs logs en une seule requête
-   sheets_manager.batch_log_scrapings(logs_list)
+   # Write multiple logs at once
+   sheets.batch_update(...)
    ```
 
 ---
 
-## Sécurité
+## Security
 
 ### Credentials Management
 
-**Google Service Account :**
-- Clé JSON en local (jamais commité)
-- `.gitignore` inclut `credentials.json`
-- Permissions minimales (Sheets API uniquement)
+**Google Service Account:**
+- Local JSON key (never committed)
+- `.gitignore` includes `credentials.json`
+- Minimal permissions (Sheets API only)
 
-**Gmail App Password :**
-- Pas de mot de passe principal stocké
-- App Password révocable individuellement
-- `.env` dans `.gitignore`
+**Gmail App Password:**
+- Main password not stored
+- Individually revocable App Password
+- `.env` in `.gitignore`
 
-**API Keys :**
-- Variables d'environnement
-- Jamais hardcodés
-- Rotation recommandée (90 jours)
+**API Keys:**
+- Environment variables
+- Never hardcoded
+- Recommended rotation (90 days)
 
 ### Communication
 
-**TLS/SSL :**
-- Gmail SMTP : TLS encryption (port 587)
-- Firecrawl API : HTTPS
-- Google Sheets API : HTTPS
+**TLS/SSL:**
+- Gmail SMTP: TLS encryption (port 587)
+- Firecrawl API: HTTPS
+- Google Sheets API: HTTPS
 
 ---
 
 ## Tests
 
-### Tests Unitaires
+### Unit Tests
 
-**Fichiers :**
+**Files:**
 - `tests/test_ai_agent.py`
 - `tests/test_content_comparator.py`
 - `tests/test_sheets_manager.py`
 - `tests/test_gmail_notifier.py`
 
-**Exécution :**
+**Execution:**
 ```bash
 python3 tests/test_ai_agent.py
 ```
 
-**Coverage :**
-- AI Agent : 100% (4/4 fonctions)
-- Comparator : 100% (5/5 fonctions)
-- Sheets Manager : 90% (8/9 méthodes)
-- Gmail Notifier : 95% (simulation mode)
+**Coverage:**
+- AI Agent: 100% (4/4 functions)
+- Comparator: 100% (5/5 functions)
+- Sheets Manager: 90% (8/9 methods)
+- Gmail Notifier: 95% (simulation mode)
 
 ---
 
-## Extensions Futures
+## Future Extensions
 
-### 1. Automatisation (Priorité: Haute)
+### 1. Automation (Priority: High)
 
-**APScheduler :**
+**APScheduler:**
 ```python
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 scheduler = BlockingScheduler()
-scheduler.add_job(agent.run, 'cron', hour=10)  # Tous les jours à 10h
+scheduler.add_job(agent.run, 'cron', hour=10)  # Every day at 10am
 scheduler.start()
 ```
 
-**Systemd Service (Linux) :**
+**Systemd Service (Linux):**
 ```ini
 [Unit]
 Description=Monitor Agent
@@ -659,39 +636,39 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-### 2. Comparaison Avancée
+### 2. Advanced Comparison
 
-**Stocker contenu complet :**
+**Store complete content:**
 ```python
-# Au lieu de juste le hash
+# Instead of just hash
 sheets_manager.log_scraping_with_content(
     log=scraping_log,
-    content=scraped.markdown  # Stocker dans colonne séparée
+    content=scraped.markdown  # Store in separate column
 )
 ```
 
-**Diff visuel :**
+**Visual diff:**
 ```python
-# Générer HTML diff
+# Generate HTML diff
 from difflib import HtmlDiff
 differ = HtmlDiff()
 html_diff = differ.make_file(old_lines, new_lines)
 ```
 
-### 3. Multi-canal Notifications
+### 3. Multi-channel Notifications
 
-**Slack :**
+**Slack:**
 ```python
 from slack_sdk import WebClient
 
 client = WebClient(token=SLACK_TOKEN)
 client.chat_postMessage(
     channel="#monitoring",
-    text=f"Changement détecté sur {url}"
+    text=f"Change detected on {url}"
 )
 ```
 
-**Discord :**
+**Discord:**
 ```python
 from discord_webhook import DiscordWebhook
 
@@ -700,81 +677,67 @@ webhook.set_content(content=notification_text)
 webhook.execute()
 ```
 
-### 4. Dashboard Web
+### 4. Web Dashboard
 
-**Flask + Plotly :**
+**Streamlit:**
 ```python
-@app.route('/dashboard')
-def dashboard():
-    history = sheets_manager.get_all_comparisons()
-    fig = px.line(history, x='timestamp', y='change_score')
-    return render_template('dashboard.html', graph=fig)
+import streamlit as st
+
+st.title("Monitor Agent Dashboard")
+st.line_chart(change_history)
 ```
 
 ---
 
-## Troubleshooting
+## Performance Monitoring
 
-### Debug Mode
+### Key metrics to track:
 
-Activer logs DEBUG :
-```python
-# src/utils/logger.py
-LOG_LEVEL = "DEBUG"
-```
+- Scraping success rate
+- Average response time per site
+- API quota usage (Firecrawl, Groq)
+- Error frequency
+- Change detection accuracy
 
-### Problèmes courants
+### Recommended tools:
 
-**1. Hash toujours différent :**
-- Contenu dynamique (pub, horloge)
-- **Solution :** Augmenter threshold ou filtrer contenu
-
-**2. Firecrawl timeout :**
-- Site lent ou bloquant scrapers
-- **Solution :** Whitelist IP Firecrawl ou utiliser proxy
-
-**3. Gmail authentication error :**
-- App Password invalide
-- **Solution :** Régénérer App Password
-
-**4. Sheets API quota exceeded :**
-- Trop de requêtes
-- **Solution :** Batch operations ou cache
+- **Prometheus**: Metrics collection
+- **Grafana**: Visualization
+- **Sentry**: Error tracking
+- **New Relic**: Application monitoring
 
 ---
 
-## Métriques de Qualité
+## Best Practices
 
-### Code Quality
+### Development
 
-```bash
-# Linting
-pylint src/ main.py
+1. Always test with real websites
+2. Handle rate limits gracefully
+3. Log everything (INFO, WARNING, ERROR)
+4. Write unit tests for new features
+5. Document all configuration options
 
-# Type checking
-mypy src/ main.py
+### Production
 
-# Code complexity
-radon cc src/ -a
-```
+1. Use environment-specific configs
+2. Monitor API quotas
+3. Set up alerts for failures
+4. Regular backup of Google Sheets
+5. Rotate API keys periodically
 
-### Performance Profiling
+### Maintenance
 
-```python
-import cProfile
-import pstats
-
-profiler = cProfile.Profile()
-profiler.enable()
-
-agent.run()
-
-profiler.disable()
-stats = pstats.Stats(profiler)
-stats.sort_stats('cumtime')
-stats.print_stats(10)
-```
+1. Review logs weekly
+2. Update dependencies monthly
+3. Test with new site structures
+4. Archive old comparison data
+5. Optimize slow operations
 
 ---
 
-**Dernière mise à jour :** 6 novembre 2025  
+## Conclusion
+
+This project provides a robust, modular, and extensible solution for automated website monitoring. The architecture allows for easy addition of new modules, alternative APIs, and custom notification channels.
+
+The use of difflib for intelligent content comparison, combined with Google Sheets for persistent storage and Gmail for notifications, creates a complete monitoring pipeline that is both powerful and easy to maintain.
