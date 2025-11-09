@@ -8,6 +8,13 @@ This project is an automated website monitoring system built around a modular ar
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
+│                       scheduler.py                          │
+│              (APScheduler - Automated Execution)            │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              │ triggers at scheduled times
+                              │
+┌─────────────────────────────▼───────────────────────────────┐
 │                          main.py                            │
 │                   (MonitorAgent Orchestrator)                │
 └─────────────────────────────────────────────────────────────┘
@@ -293,7 +300,116 @@ Text version for email clients without HTML support.
 
 ---
 
+### 6. Scheduler (180 lines)
+
+**Role:** Automated cron-based scheduling for monitoring tasks.
+
+**Technologies:**
+- APScheduler 3.10.4
+- BlockingScheduler (continuous execution)
+- CronTrigger (time-based scheduling)
+
+**Main functions:**
+
+#### parse_schedule
+```python
+def parse_schedule(schedule_str: str) -> dict
+```
+
+Converts YAML schedule strings to cron parameters.
+
+**Supported formats:**
+- `"daily 10:00"` → `{'hour': 10, 'minute': 0}`
+- `"twice-daily"` → Two jobs at 9:00 and 18:00
+- `"hourly"` → `{'minute': 0}`
+- `"every X hours"` → `{'hour': '*/X'}`
+- `"monday 14:30"` → `{'day_of_week': 'mon', 'hour': 14, 'minute': 30}`
+
+**Input (sites.yaml):**
+```yaml
+sites:
+  - name: "Zalando Men Prices"
+    instruction: "monitor prices on Zalando men's page"
+    schedule: "daily 10:00"
+    active: true
+    threshold: 1.0
+```
+
+**Output:**
+```python
+{
+    'hour': 10,
+    'minute': 0
+}
+```
+
+#### run_monitoring_for_site
+```python
+def run_monitoring_for_site(site_config: dict)
+```
+
+Wrapper that executes monitoring for a specific site configuration.
+
+**Workflow:**
+1. Initialize MonitorAgent
+2. Call `monitor_site(site_config)`
+3. Log execution results
+4. Handle errors gracefully
+
+#### setup_scheduler
+```python
+def setup_scheduler() -> BlockingScheduler
+```
+
+Configures APScheduler with all active sites from `sites.yaml`.
+
+**Process:**
+1. Load sites configuration
+2. Filter active sites (`active: true`)
+3. Parse schedule for each site
+4. Create CronTrigger jobs
+5. Return configured scheduler
+
+**Example output:**
+```
+INFO:src.scheduler:Scheduled: 'monitor Zalando prices' with {'hour': 10, 'minute': 0}
+INFO:src.scheduler:Total jobs scheduled: 1
+INFO:src.scheduler:Next run times:
+  - monitor Zalando prices: 2025-11-10 10:00:00
+```
+
+#### main
+```python
+def main()
+```
+
+Entry point that starts the scheduler.
+
+**Execution:**
+```bash
+# Run in foreground
+python3 src/scheduler.py
+
+# Run in background (macOS/Linux)
+nohup python3 src/scheduler.py &
+
+# Stop background process
+pkill -f "python3 src/scheduler.py"
+```
+
+**Production deployment options:**
+- **systemd** (Linux) - Auto-restart on boot
+- **launchd** (macOS) - Launch agent
+- **Docker** - Containerized deployment
+- **Cloud VM** - Railway.app, Render.com, DigitalOcean
+
+See `SCHEDULING.md` for complete deployment guide.
+
+---
+
 ## Complete Workflow
+
+### Manual Execution
 
 ### 1. Initialization
 ```python
@@ -383,6 +499,103 @@ if change_score > threshold:
 logger.info(f"Sites monitored: {total}")
 logger.info(f"Success: {success}")
 logger.info(f"Errors: {errors}")
+```
+
+### Automated Execution (Scheduler)
+
+### 1. Scheduler Initialization
+```python
+scheduler = setup_scheduler()
+# - Load sites.yaml
+# - Parse schedules for each site
+# - Create CronTrigger jobs
+# - Return configured BlockingScheduler
+```
+
+### 2. Job Scheduling
+```python
+for site in active_sites:
+    schedule = parse_schedule(site['schedule'])
+    scheduler.add_job(
+        run_monitoring_for_site,
+        trigger=CronTrigger(**schedule),
+        args=[site],
+        id=site['name']
+    )
+```
+
+### 3. Continuous Execution
+```python
+scheduler.start()
+# BlockingScheduler runs forever
+# Executes jobs at scheduled times
+# Uses main.MonitorAgent for each job
+```
+
+### 4. Scheduled Monitoring
+At each scheduled time:
+```python
+run_monitoring_for_site(site_config)
+# - Initialize MonitorAgent
+# - Call monitor_site(site_config)
+# - Same workflow as manual execution (sections 1-4 above)
+# - Log results
+```
+
+**Example logs:**
+```
+INFO:src.scheduler:Scheduled: 'monitor Zalando prices' with {'hour': 10, 'minute': 0}
+INFO:src.scheduler:Total jobs scheduled: 1
+INFO:apscheduler.scheduler:Scheduler started
+INFO:apscheduler.executors.default:Running job "monitor Zalando prices" (scheduled at 2025-11-10 10:00:00)
+```
+
+---
+
+## Deployment Options
+
+### Local Machine
+**Advantages:**
+- No cost
+- Quick setup
+
+**Disadvantages:**
+- Must stay powered on 24/7
+- Not accessible remotely
+
+**Setup (macOS with launchd):**
+```bash
+# Create ~/Library/LaunchAgents/com.monitoragent.plist
+launchctl load ~/Library/LaunchAgents/com.monitoragent.plist
+```
+
+### Cloud VM (Recommended)
+**Providers:**
+- Railway.app (5$/month)
+- Render.com (free tier available)
+- DigitalOcean (6$/month)
+- Fly.io (free tier 256MB)
+
+**Advantages:**
+- Always available
+- Accessible anywhere
+- Easy scaling
+
+**Setup:**
+```bash
+# Deploy via Git
+git push railway main
+
+# Or use systemd on Linux VM
+sudo systemctl enable monitor-agent
+sudo systemctl start monitor-agent
+```
+
+See `SCHEDULING.md` for complete deployment instructions.
+
+---
+
+## Summary
 ```
 
 ---

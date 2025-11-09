@@ -42,6 +42,7 @@ monitor_agent/
 │   ├── .env                    # Environment variables (to create)
 │   └── .env.example            # Configuration template
 ├── src/
+│   ├── scheduler.py            # Automated scheduling (APScheduler)
 │   ├── modules/
 │   │   ├── ai_agent.py         # Instruction parsing (Groq LLM)
 │   │   ├── firecrawl_scraper.py # Web scraping (Firecrawl API)
@@ -49,6 +50,10 @@ monitor_agent/
 │   │   ├── sheets_manager.py   # Google Sheets management
 │   │   └── gmail_notifier.py   # Email notifications
 │   └── utils/
+│       └── logger.py           # Logging system
+└── tests/                      # Unit tests
+
+```
 │       └── logger.py           # Logging system
 └── tests/                      # Unit tests
 
@@ -191,17 +196,33 @@ sites:
 
 ## Usage
 
-### Run monitoring
+### Manual execution (one-time)
 
 ```bash
 python3 main.py
 ```
 
+### Automated scheduling (production)
+
+```bash
+# Start the scheduler (runs continuously)
+python3 src/scheduler.py
+
+# Or run in background
+nohup python3 src/scheduler.py > scheduler.log 2>&1 &
+```
+
+The scheduler will:
+- Read active sites from `config/sites.yaml`
+- Execute monitoring at scheduled times (e.g., daily 10:00)
+- Log all executions
+- Send email notifications when changes are detected
+
 **Workflow:**
 
 1. Module initialization (Sheets, Gmail)
 2. Loading `sites.yaml`
-3. For each active site:
+3. For each active site (at scheduled time):
    - Parse instruction → URL
    - Scrape content
    - Calculate MD5 hash
