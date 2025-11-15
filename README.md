@@ -350,12 +350,3 @@ ERR_TIMED_OUT
 ### Identical hash despite changes
 
 **Solution:** Dynamic content (ads, clock) may vary. Increase the `threshold` or filter content before comparison.
-
-## Support
-
-For any questions or issues:
-
-- Email: your-email@example.com
-- Issues: [GitHub Issues](repository_url/issues)
-
----
