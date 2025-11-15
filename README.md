@@ -53,9 +53,6 @@ monitor_agent/
 │       └── logger.py           # Logging system
 └── tests/                      # Unit tests
 
-```
-│       └── logger.py           # Logging system
-└── tests/                      # Unit tests
 
 ```
 
