@@ -359,5 +359,3 @@ For any questions or issues:
 - Issues: [GitHub Issues](repository_url/issues)
 
 ---
-
-**Made with passion**
