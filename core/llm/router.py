@@ -3,6 +3,7 @@ import time
 from typing import Any, Optional
 
 from openai import OpenAI
+from openai import APIError, APIConnectionError, RateLimitError, AuthenticationError
 
 from core.llm.config import LLMResponse, ModelConfig, TaskProfile
 
@@ -61,11 +62,10 @@ class LLMRouter:
             candidates = [m for m in self.models.values() if m.supports_vision]
             if candidates:
                 return candidates[0]
+            raise LLMError("No vision-capable model configured")
 
         if task.name == "parse":
             return self._by_model_name("fast") or self._default_model()
-        if task.name in ("analyze", "vision", "report", "action"):
-            return self._default_model()
         return self._default_model()
 
     def _by_model_name(self, name: str) -> Optional[ModelConfig]:
@@ -73,7 +73,9 @@ class LLMRouter:
         return self.models.get(name)
 
     def _default_model(self) -> ModelConfig:
-        """Return the default model (the first configured one)."""
+        """Return the default model, preferring a model named ``default``."""
+        if "default" in self.models:
+            return self.models["default"]
         return next(iter(self.models.values()))
 
     def _get_client(self, config: ModelConfig) -> OpenAI:
@@ -104,8 +106,9 @@ class LLMRouter:
         Args:
             messages: List of messages in the OpenAI chat format.
             task: Task profile used to route the request.
-            **kwargs: Extra arguments forwarded to the chat completion call, such as
-                ``temperature`` and ``max_tokens``.
+            **kwargs: Extra arguments for the chat completion call. Only
+                ``temperature`` (default 0.1) and ``max_tokens`` (default 500) are
+                supported.
 
         Returns:
             An ``LLMResponse`` containing the generated content, token usage, and latency.
@@ -123,8 +126,10 @@ class LLMRouter:
                 temperature=kwargs.get("temperature", 0.1),
                 max_tokens=kwargs.get("max_tokens", 500),
             )
-        except Exception as exc:
+        except (APIError, APIConnectionError, RateLimitError, AuthenticationError) as exc:
             raise LLMError(f"LLM request failed for model {config.model}: {exc}") from exc
+        except Exception as exc:
+            raise LLMError(f"Unexpected LLM request failure for model {config.model}: {exc}") from exc
         latency_ms = (time.time() - start) * 1000
         usage = response.usage
         return LLMResponse(

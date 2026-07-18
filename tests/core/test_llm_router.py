@@ -83,8 +83,10 @@ def test_chat_raises_llm_error_on_api_failure(mock_openai_class):
         "default": {"provider": "openai_compatible", "base_url": "http://default", "api_env": "DEFAULT_KEY", "model": "default-model"},
     })
     with patch.dict("os.environ", {"DEFAULT_KEY": "test-key"}):
-        with pytest.raises(LLMError):
+        with pytest.raises(LLMError) as exc_info:
             router.chat([{"role": "user", "content": "hi"}], TaskProfile(name="analyze"))
+    assert "API down" in str(exc_info.value)
+    assert isinstance(exc_info.value.__cause__, RuntimeError)
 
 
 @patch("core.llm.router.OpenAI")
@@ -101,6 +103,25 @@ def test_client_caching_uses_correct_api_key_per_model(mock_openai_class):
     calls = mock_openai_class.call_args_list
     assert calls[0].kwargs["api_key"] == "key-a"
     assert calls[1].kwargs["api_key"] == "key-b"
+
+
+@patch("core.llm.router.OpenAI")
+def test_timeout_passed_to_openai_client(mock_openai_class):
+    mock_openai_class.return_value = MagicMock()
+    router = LLMRouter({
+        "default": {"provider": "openai_compatible", "base_url": "http://default", "api_env": "DEFAULT_KEY", "model": "default-model", "timeout": 42.0},
+    })
+    with patch.dict("os.environ", {"DEFAULT_KEY": "test-key"}):
+        router._get_client(router.models["default"])
+    assert mock_openai_class.call_args.kwargs["timeout"] == 42.0
+
+
+def test_vision_required_but_no_vision_model_raises_llm_error():
+    router = LLMRouter({
+        "default": {"provider": "openai_compatible", "base_url": "http://default", "api_env": "DEFAULT_KEY", "model": "default-model"},
+    })
+    with pytest.raises(LLMError, match="No vision-capable model configured"):
+        router.route(TaskProfile(name="analyze", requires_vision=True))
 
 
 @patch("config.settings.load_llm_router_config")
