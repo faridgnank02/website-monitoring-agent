@@ -43,6 +43,11 @@ GMAIL_RECIPIENT_EMAIL = os.getenv('GMAIL_RECIPIENT_EMAIL', '')
 GMAIL_APP_PASSWORD = os.getenv('GMAIL_APP_PASSWORD', '')
 
 # ========================================
+# SECURITY SETTINGS
+# ========================================
+SECRET_KEY = os.getenv('SECRET_KEY', 'change-me-in-production')
+
+# ========================================
 # APPLICATION SETTINGS
 # ========================================
 ENV = os.getenv('ENV', 'development')
@@ -129,6 +134,7 @@ def load_llm_router_config() -> dict:
 # EXPORT
 # ========================================
 __all__ = [
+    'SECRET_KEY',
     'GROQ_API_KEY',
     'GROQ_MODEL',
     'FIRECRAWL_API_KEY',

@@ -1,3 +1,5 @@
+import pytest
+
 from core.security.encryption import TokenEncryption
 
 
@@ -13,8 +15,5 @@ def test_different_key_fails():
     enc1 = TokenEncryption("test-secret-key-32bytes-long!!")
     enc2 = TokenEncryption("different-key-32bytes-long!!")
     ciphertext = enc1.encrypt("my-token")
-    try:
+    with pytest.raises(ValueError, match="Invalid token or wrong encryption key"):
         enc2.decrypt(ciphertext)
-        assert False, "should have failed"
-    except Exception:
-        pass
