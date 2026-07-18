@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 from core.entities.extractor import extract_entities
 from core.entities.models import Entity
-from core.llm.config import LLMResponse, TaskProfile
+from core.llm.config import LLMResponse
 
 
 def test_extract_entities_parses_valid_json():
@@ -84,3 +84,17 @@ def test_extract_entities_skips_entries_missing_name_or_value():
     )
     result = extract_entities("T-Shirt $19.99", router)
     assert result == [Entity(entity_id="t-shirt", name="T-Shirt", value="19.99", unit=None, context=None)]
+
+
+def test_extract_entities_skips_non_dict_entries():
+    router = MagicMock()
+    router.chat.return_value = LLMResponse(
+        content='["string", {"name": "x", "value": "y"}]',
+        model="mixtral",
+        usage={"prompt_tokens": 100, "completion_tokens": 20},
+        cost_input_per_1k=0.0,
+        cost_output_per_1k=0.0,
+        latency_ms=120.0,
+    )
+    result = extract_entities("some markdown", router)
+    assert result == [Entity(entity_id="x", name="x", value="y", unit=None, context=None)]

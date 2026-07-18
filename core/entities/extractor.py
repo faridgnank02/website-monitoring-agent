@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from typing import Optional
 from core.entities.models import Entity
@@ -68,5 +69,6 @@ def extract_entities(markdown: str, llm_router: Optional[LLMRouter] = None) -> l
             if entity:
                 entities.append(entity)
         return entities
-    except Exception:
+    except Exception as exc:
+        logging.warning("Entity extraction failed: %s", exc)
         return []
