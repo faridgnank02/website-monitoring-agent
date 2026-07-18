@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from db.base import init_db, SessionLocal
 from db.models import User, MonitorSite, AuditLog, ApprovalRequest
@@ -49,7 +50,7 @@ def test_site_has_monitor_mode():
     init_db()
     db = SessionLocal()
     try:
-        user = User(email="test@example.com", hashed_password="x")
+        user = User(email=f"test-{uuid.uuid4()}@example.com", hashed_password="x")
         db.add(user)
         db.commit()
         site = MonitorSite(
