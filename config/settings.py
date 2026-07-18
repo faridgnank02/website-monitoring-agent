@@ -45,7 +45,7 @@ GMAIL_APP_PASSWORD = os.getenv('GMAIL_APP_PASSWORD', '')
 # ========================================
 # SECURITY SETTINGS
 # ========================================
-SECRET_KEY = os.getenv('SECRET_KEY', 'change-me-in-production')
+SECRET_KEY = os.getenv('SECRET_KEY', '')
 
 # ========================================
 # APPLICATION SETTINGS
@@ -99,6 +99,9 @@ def validate_config():
     
     if not GMAIL_SENDER_EMAIL or not GMAIL_RECIPIENT_EMAIL:
         errors.append("GMAIL_SENDER_EMAIL et GMAIL_RECIPIENT_EMAIL doivent être définis")
+    
+    if not SECRET_KEY or not SECRET_KEY.strip():
+        errors.append("SECRET_KEY doit être définie et non vide")
     
     if errors:
         error_msg = "\n".join([f"  - {error}" for error in errors])

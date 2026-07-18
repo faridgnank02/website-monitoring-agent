@@ -15,7 +15,13 @@ class TokenEncryption:
 
         Args:
             secret_key: The secret key used to derive the Fernet key.
+
+        Raises:
+            ValueError: If the secret key is empty or only whitespace.
         """
+        if not secret_key or not secret_key.strip():
+            raise ValueError("secret key cannot be empty or whitespace")
+
         # Derive a 32-byte URL-safe base64-encoded Fernet key from any secret.
         digest = hashlib.sha256(secret_key.encode()).digest()
         self._fernet = Fernet(base64.urlsafe_b64encode(digest))
@@ -57,4 +63,6 @@ class TokenEncryption:
 def get_encryptor() -> TokenEncryption:
     """Return a TokenEncryption instance using the configured SECRET_KEY."""
     from config import settings
+    if not settings.SECRET_KEY or not settings.SECRET_KEY.strip():
+        raise ValueError("SECRET_KEY must be set and non-empty")
     return TokenEncryption(settings.SECRET_KEY)
