@@ -44,7 +44,7 @@ class MonitorSite(Base):
     schedule_cron: Mapped[str] = mapped_column(String(100), default="0 */6 * * *")  # every 6h
     use_case: Mapped[str] = mapped_column(String(100), default="general")
     # use_case: ecommerce_pricing | ecommerce_stock | regulatory | press | competitor | general
-    tags: Mapped[Optional[dict]] = mapped_column(JSON, default=list)
+    tags: Mapped[Optional[dict]] = mapped_column(JSON, default=dict)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -53,6 +53,7 @@ class MonitorSite(Base):
     scrape_config: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     workflow_rules: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     approval_policy: Mapped[str] = mapped_column(String(50), default="high_risk")
+    # TODO: encrypt these tokens at rest using core.security.encryption before storing
     slack_webhook: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
     notion_token: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
     github_token: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
