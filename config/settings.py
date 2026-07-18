@@ -3,6 +3,7 @@ Configuration centralisée pour Monitor Agent
 Charge toutes les variables d'environnement et expose les settings
 """
 
+import json
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -104,6 +105,27 @@ def validate_config():
     return True
 
 # ========================================
+# LLM ROUTER CONFIG
+# ========================================
+LLM_ROUTER_CONFIG = os.getenv("LLM_ROUTER_CONFIG", "")
+
+def load_llm_router_config() -> dict:
+    """Load router config from env JSON or return a sensible default."""
+    if LLM_ROUTER_CONFIG:
+        try:
+            return json.loads(LLM_ROUTER_CONFIG)
+        except json.JSONDecodeError:
+            raise ValueError("LLM_ROUTER_CONFIG is not valid JSON")
+    return {
+        "groq_fast": {
+            "provider": "openai_compatible",
+            "base_url": "https://api.groq.com/openai/v1",
+            "api_env": "GROQ_API_KEY",
+            "model": "llama-3.3-70b-versatile",
+        }
+    }
+
+# ========================================
 # EXPORT
 # ========================================
 __all__ = [
@@ -132,4 +154,6 @@ __all__ = [
     'LOGS_DIR',
     'SITES_CONFIG_FILE',
     'validate_config',
+    'LLM_ROUTER_CONFIG',
+    'load_llm_router_config',
 ]
