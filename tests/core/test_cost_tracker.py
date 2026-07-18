@@ -1,5 +1,5 @@
 from core.llm.config import LLMResponse
-from core.llm.cost_tracker import CostTracker
+from core.llm.cost_tracker import CostTracker, TrackedCall
 
 
 def _make_response(
@@ -69,7 +69,7 @@ def test_reset_clears_all_calls_when_no_run_id():
     tracker.track("run-2", "analyze", _make_response())
     tracker.reset()
     assert tracker.summary()["calls"] == 0
-    assert tracker.calls == []
+    assert tracker._calls == []
 
 
 def test_reset_run_id_removes_only_that_run():
@@ -125,3 +125,22 @@ def test_total_prompt_and_completion_tokens():
     summary = tracker.summary("run-1")
     assert summary["total_prompt_tokens"] == 3500
     assert summary["total_completion_tokens"] == 1700
+
+
+def test_tracked_call_shape_and_defaults():
+    call = TrackedCall(
+        run_id="run-1",
+        task="parse",
+        model="m",
+        cost=0.025,
+        latency_ms=100.0,
+        prompt_tokens=1000,
+        completion_tokens=500,
+    )
+    assert call.run_id == "run-1"
+    assert call.task == "parse"
+    assert call.model == "m"
+    assert call.cost == 0.025
+    assert call.latency_ms == 100.0
+    assert call.prompt_tokens == 1000
+    assert call.completion_tokens == 500

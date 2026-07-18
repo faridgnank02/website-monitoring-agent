@@ -21,13 +21,16 @@ class CostTracker:
     """Track cost, latency, and token usage across LLM calls.
 
     Calls can be grouped by ``run_id`` and summarized or reset independently.
+
+    ``_calls`` is an internal implementation detail and should not be accessed
+    directly by consumers.
     """
 
-    calls: list[TrackedCall] = field(default_factory=list)
+    _calls: list[TrackedCall] = field(default_factory=list)
 
     def track(self, run_id: str, task: str, response: LLMResponse) -> None:
         """Record a single LLM call."""
-        self.calls.append(
+        self._calls.append(
             TrackedCall(
                 run_id=run_id,
                 task=task,
@@ -44,7 +47,7 @@ class CostTracker:
 
         If ``run_id`` is provided, only calls for that run are included.
         """
-        items = [c for c in self.calls if run_id is None or c.run_id == run_id]
+        items = [c for c in self._calls if run_id is None or c.run_id == run_id]
         return {
             "calls": len(items),
             "total_cost": round(sum(c.cost for c in items), 6),
@@ -59,6 +62,6 @@ class CostTracker:
         If ``run_id`` is provided, only calls for that run are removed.
         """
         if run_id is None:
-            self.calls = []
+            self._calls = []
         else:
-            self.calls = [c for c in self.calls if c.run_id != run_id]
+            self._calls = [c for c in self._calls if c.run_id != run_id]
