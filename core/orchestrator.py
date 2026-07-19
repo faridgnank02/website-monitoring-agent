@@ -115,7 +115,7 @@ class MonitoringOrchestrator:
             content_hash=event.content_hash or hashlib.md5(content.encode("utf-8")).hexdigest(),
             content_length=len(content),
             status="success",
-            extracted_entities={"entities": event.entities},
+            extracted_entities=[e.model_dump() for e in event.entities],
             model_calls={"run_id": run_id},
         )
         self.db.add(snap)
@@ -159,12 +159,16 @@ class MonitoringOrchestrator:
         return change
 
     def _log(self, run_id: str, site: MonitorSite, actor: str, action: str, event):
+        if hasattr(event, "model_dump"):
+            reasoning_payload = event.model_dump()
+        else:
+            reasoning_payload = str(getattr(event, "payload", {}))
         log = AuditLog(
             run_id=run_id,
             site_id=site.id,
             actor=actor,
             action=action,
-            reasoning=str(event.payload) if hasattr(event, "payload") else "",
+            reasoning=str(reasoning_payload),
             cost_usd=getattr(event, "cost_usd", 0.0),
             latency_ms=getattr(event, "latency_ms", 0.0),
         )
