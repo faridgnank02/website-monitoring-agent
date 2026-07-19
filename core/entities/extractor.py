@@ -7,6 +7,9 @@ from core.llm.router import LLMRouter
 from core.llm.config import TaskProfile
 
 
+_logger = logging.getLogger(__name__)
+
+
 EXTRACTION_PROMPT = """
 Extract structured entities from the markdown below. Return ONLY a JSON array of objects.
 Each object must have: name, value. Optional fields: unit, context.
@@ -28,7 +31,7 @@ def _strip_code_fences(content: str) -> str:
     content = content.strip()
     if content.startswith("```"):
         content = content[3:]
-        if content.startswith("json"):
+        if content.lower().startswith("json"):
             content = content[4:]
         content = content.strip()
     if content.endswith("```"):
@@ -36,22 +39,27 @@ def _strip_code_fences(content: str) -> str:
     return content
 
 
+def _coerce_str(raw: dict, key: str) -> str:
+    value = raw.get(key)
+    return "" if value is None else str(value).strip()
+
+
 def _derive_entity_id(entity: dict) -> str:
-    context = str(entity.get("context") or "").strip()
-    name = str(entity.get("name") or "").strip()
+    context = _coerce_str(entity, "context")
+    name = _coerce_str(entity, "name")
     if context and name:
         return _slugify(f"{context}::{name}")
     return _slugify(name)
 
 
 def _normalize_entity(raw: dict) -> Optional[Entity]:
-    name = str(raw.get("name") or "").strip()
-    value = str(raw.get("value") or "").strip()
+    name = _coerce_str(raw, "name")
+    value = _coerce_str(raw, "value")
     if not name or not value:
         return None
-    unit = str(raw.get("unit") or "").strip() or None
-    context = str(raw.get("context") or "").strip() or None
-    entity_id = str(raw.get("entity_id") or "").strip() or _derive_entity_id(raw)
+    unit = _coerce_str(raw, "unit") or None
+    context = _coerce_str(raw, "context") or None
+    entity_id = _coerce_str(raw, "entity_id") or _derive_entity_id(raw)
     return Entity(
         entity_id=entity_id,
         name=name,
@@ -92,5 +100,5 @@ def extract_entities(markdown: str, llm_router: Optional[LLMRouter] = None) -> l
                 entities.append(entity)
         return entities
     except Exception as exc:
-        logging.warning("Entity extraction failed: %s", exc)
+        _logger.warning("Entity extraction failed: %s", exc)
         return []

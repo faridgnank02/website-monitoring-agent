@@ -126,3 +126,34 @@ def test_extract_entities_strips_markdown_code_fences():
     )
     result = extract_entities("T-Shirt $19.99", router)
     assert result == [Entity(entity_id="t-shirt", name="T-Shirt", value="19.99", unit="USD")]
+
+
+def test_extract_entities_keeps_zero_and_false_values():
+    router = MagicMock()
+    router.chat.return_value = LLMResponse(
+        content='[{"name": "Stock", "value": 0}, {"name": "Flag", "value": false}]',
+        model="mixtral",
+        usage={"prompt_tokens": 100, "completion_tokens": 20},
+        cost_input_per_1k=0.0,
+        cost_output_per_1k=0.0,
+        latency_ms=120.0,
+    )
+    result = extract_entities("some markdown", router)
+    assert result == [
+        Entity(entity_id="stock", name="Stock", value="0", unit=None, context=None),
+        Entity(entity_id="flag", name="Flag", value="False", unit=None, context=None),
+    ]
+
+
+def test_extract_entities_strips_uppercase_json_fence():
+    router = MagicMock()
+    router.chat.return_value = LLMResponse(
+        content='```JSON\n[{"name": "T-Shirt", "value": "19.99", "unit": "USD"}]\n```',
+        model="mixtral",
+        usage={"prompt_tokens": 100, "completion_tokens": 20},
+        cost_input_per_1k=0.0,
+        cost_output_per_1k=0.0,
+        latency_ms=120.0,
+    )
+    result = extract_entities("T-Shirt $19.99", router)
+    assert result == [Entity(entity_id="t-shirt", name="T-Shirt", value="19.99", unit="USD")]
