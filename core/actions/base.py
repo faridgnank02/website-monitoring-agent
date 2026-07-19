@@ -36,3 +36,24 @@ class ActionHandler(ABC):
 
     @abstractmethod
     def execute(self, proposed: ProposedAction) -> ActionResult: ...
+
+    def input_schema(self) -> dict:
+        """JSON Schema for tool input. Default: ProposedAction.payload shape."""
+        return {
+            "type": "object",
+            "properties": {
+                "payload": {"type": "object"}
+            },
+            "required": ["payload"]
+        }
+
+    def output_schema(self) -> dict:
+        """JSON Schema for tool output. Default: ActionResult shape."""
+        return {
+            "type": "object",
+            "properties": {
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "output": {"type": "object"}
+            }
+        }

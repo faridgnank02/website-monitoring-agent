@@ -44,10 +44,33 @@ class ContentComparator:
         r'Updated:.*',  # Lignes "Updated: ..."
         r'Last modified:.*',  # Lignes "Last modified: ..."
         r'Session ID:.*',  # Session IDs
-        r'Cookie:.*',  # Cookies
+        r'Cookie:.*',  # Cookies header
         r'\d+ visitors? online',  # Compteurs de visiteurs
         r'Copyright © \d{4}',  # Copyright avec année
         r'Generated on.*',  # "Generated on ..."
+        # Cookie banners & consent
+        r'(?:accept|reject|manage)\s+(?:all\s+)?cookies',
+        r'cookie\s*(?:policy|preferences|settings|consent|notice|banner)',
+        r'we\s+use\s+cookies',
+        r'this\s+(?:site|website)\s+uses?\s+cookies',
+        r'by\s+(?:continuing|using)\s+(?:this|our)\s+(?:site|website)',
+        r'consent\s+(?:to|for)\s+(?:the\s+use\s+of\s+)?cookies',
+        # GDPR / Privacy
+        r'gdpr',
+        r'privacy\s*(?:policy|notice|settings)',
+        r'data\s+protection',
+        r'(?:personalize|personalise)\s+(?:your\s+)?experience',
+        # Tracking & ads
+        r'(?:google|analytics|tracking)\s*(?:tag|pixel|id)',
+        r'advertisement',
+        r'sponsored\s+(?:content|links?|results?)',
+        # Newsletter / popup noise
+        r'subscribe\s+to\s+(?:our\s+)?newsletter',
+        r'sign\s+up\s+for\s+(?:our\s+)?(?:newsletter|updates)',
+        r'enter\s+your\s+email',
+        # Navigation / UI chrome
+        r'^(?:menu|close|open|toggle|skip\s+to\s+(?:main\s+)?content)$',
+        r'^(?:share|tweet|pin\s+it|follow\s+us)$',
     ]
     
     def __init__(self, 
