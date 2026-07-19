@@ -98,3 +98,31 @@ def test_extract_entities_skips_non_dict_entries():
     )
     result = extract_entities("some markdown", router)
     assert result == [Entity(entity_id="x", name="x", value="y", unit=None, context=None)]
+
+
+def test_extract_entities_handles_numeric_value():
+    router = MagicMock()
+    router.chat.return_value = LLMResponse(
+        content='[{"name": "T-Shirt", "value": 19.99, "unit": "USD"}]',
+        model="mixtral",
+        usage={"prompt_tokens": 100, "completion_tokens": 20},
+        cost_input_per_1k=0.0,
+        cost_output_per_1k=0.0,
+        latency_ms=120.0,
+    )
+    result = extract_entities("T-Shirt $19.99", router)
+    assert result == [Entity(entity_id="t-shirt", name="T-Shirt", value="19.99", unit="USD")]
+
+
+def test_extract_entities_strips_markdown_code_fences():
+    router = MagicMock()
+    router.chat.return_value = LLMResponse(
+        content='```json\n[{"name": "T-Shirt", "value": "19.99", "unit": "USD"}]\n```',
+        model="mixtral",
+        usage={"prompt_tokens": 100, "completion_tokens": 20},
+        cost_input_per_1k=0.0,
+        cost_output_per_1k=0.0,
+        latency_ms=120.0,
+    )
+    result = extract_entities("T-Shirt $19.99", router)
+    assert result == [Entity(entity_id="t-shirt", name="T-Shirt", value="19.99", unit="USD")]

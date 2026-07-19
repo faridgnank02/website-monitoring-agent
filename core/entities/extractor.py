@@ -24,32 +24,54 @@ def _slugify(text: str) -> str:
     return text or "entity"
 
 
+def _strip_code_fences(content: str) -> str:
+    content = content.strip()
+    if content.startswith("```"):
+        content = content[3:]
+        if content.startswith("json"):
+            content = content[4:]
+        content = content.strip()
+    if content.endswith("```"):
+        content = content[:-3].strip()
+    return content
+
+
 def _derive_entity_id(entity: dict) -> str:
-    context = (entity.get("context") or "").strip()
-    name = (entity.get("name") or "").strip()
+    context = str(entity.get("context") or "").strip()
+    name = str(entity.get("name") or "").strip()
     if context and name:
         return _slugify(f"{context}::{name}")
     return _slugify(name)
 
 
 def _normalize_entity(raw: dict) -> Optional[Entity]:
-    name = (raw.get("name") or "").strip()
-    value = (raw.get("value") or "").strip()
+    name = str(raw.get("name") or "").strip()
+    value = str(raw.get("value") or "").strip()
     if not name or not value:
         return None
-    entity_id = (raw.get("entity_id") or "").strip() or _derive_entity_id(raw)
-    if not entity_id:
-        return None
+    unit = str(raw.get("unit") or "").strip() or None
+    context = str(raw.get("context") or "").strip() or None
+    entity_id = str(raw.get("entity_id") or "").strip() or _derive_entity_id(raw)
     return Entity(
         entity_id=entity_id,
         name=name,
         value=value,
-        unit=(raw.get("unit") or None),
-        context=(raw.get("context") or None),
+        unit=unit,
+        context=context,
     )
 
 
 def extract_entities(markdown: str, llm_router: Optional[LLMRouter] = None) -> list[Entity]:
+    """Extract structured entities from markdown using an LLM router.
+
+    Args:
+        markdown: The markdown content to extract entities from.
+        llm_router: Optional LLM router used to generate the JSON entity list.
+            If None, an empty list is returned.
+
+    Returns:
+        A list of normalized Entity objects extracted from the LLM response.
+    """
     if not llm_router:
         return []
     messages = [
@@ -58,7 +80,7 @@ def extract_entities(markdown: str, llm_router: Optional[LLMRouter] = None) -> l
     ]
     try:
         response = llm_router.chat(messages, TaskProfile(name="parse"))
-        raw_list = json.loads(response.content or "[]")
+        raw_list = json.loads(_strip_code_fences(response.content or "[]"))
         if not isinstance(raw_list, list):
             return []
         entities = []
