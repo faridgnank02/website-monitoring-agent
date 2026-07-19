@@ -1,5 +1,6 @@
 from unittest.mock import patch, MagicMock
 from core.agents.scout import ScoutAgent
+from core.entities.models import Entity
 from db.models import MonitorSite
 
 
@@ -25,3 +26,23 @@ def test_scout_detects_first_snapshot(mock_scrape, mock_parse):
     assert event.has_change is True
     assert event.url == "https://example.com"
     assert event.entities == []
+
+
+def test_scout_extracts_and_returns_entities():
+    site = MagicMock()
+    site.id = 1
+    site.instruction = "Monitor price of T-Shirt"
+    site.url = "https://example.com"
+
+    parsed = MagicMock(success=True, url="https://example.com", error=None)
+    scraped = MagicMock(success=True, markdown="T-Shirt $19.99", html="", metadata={}, error=None)
+    entity = Entity(entity_id="t-shirt", name="T-Shirt", value="19.99", unit="USD")
+
+    with patch("core.agents.scout.parse_instruction", return_value=parsed), \
+         patch("core.agents.scout.scrape_url", return_value=scraped), \
+         patch("core.agents.scout.extract_entities", return_value=[entity]):
+        agent = ScoutAgent(llm_router=MagicMock(), db=MagicMock())
+        event = agent.run(site, previous_snapshot=None)
+
+    assert event.has_change is True
+    assert event.entities == [entity]
