@@ -25,6 +25,7 @@ class ScoutEvent(AgentEvent):
     content_hash: Optional[str] = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     entities: list[Entity] = Field(default_factory=list)
+    screenshot_bytes: Optional[bytes] = None
     error: Optional[str] = None
 
 
@@ -38,6 +39,7 @@ class AnalysisEvent(AgentEvent):
     removed_lines: int = 0
     modified_lines: int = 0
     visual_diff_path: Optional[str] = None
+    visual_diff_bytes: Optional[bytes] = None
     vision_description: Optional[str] = None
     semantic_diff_summary: Optional[str] = None
     correlated_entities: list[CorrelatedEntity] = Field(default_factory=list)

@@ -47,3 +47,53 @@ def test_action_event_serializes_result():
         approval_requests=[],
     )
     assert event.model_dump()["stage"] == "action"
+
+
+def test_scout_event_carries_screenshot_bytes():
+    event = ScoutEvent(
+        run_id="r1",
+        site_id=1,
+        has_change=True,
+        url="https://example.com",
+        screenshot_bytes=b"png",
+    )
+    assert event.screenshot_bytes == b"png"
+
+
+def test_analysis_event_carries_visual_diff_bytes():
+    event = AnalysisEvent(
+        run_id="r1",
+        site_id=1,
+        has_change=True,
+        visual_diff_bytes=b"diffpng",
+        visual_diff_path="data/screenshots/1/diffs/1.png",
+    )
+    assert event.visual_diff_bytes == b"diffpng"
+    assert event.visual_diff_path == "data/screenshots/1/diffs/1.png"
+
+
+def test_screenshot_bytes_survives_serialization_roundtrip():
+    event = ScoutEvent(
+        run_id="r1",
+        site_id=1,
+        has_change=True,
+        url="https://example.com",
+        screenshot_bytes=b"pngdata",
+    )
+    data = event.model_dump(mode="json")
+    assert isinstance(data["screenshot_bytes"], str)
+    restored = ScoutEvent(**data)
+    assert restored.screenshot_bytes == b"pngdata"
+
+
+def test_visual_diff_bytes_survives_serialization_roundtrip():
+    event = AnalysisEvent(
+        run_id="r1",
+        site_id=1,
+        has_change=True,
+        visual_diff_bytes=b"diffpng",
+    )
+    data = event.model_dump(mode="json")
+    assert isinstance(data["visual_diff_bytes"], str)
+    restored = AnalysisEvent(**data)
+    assert restored.visual_diff_bytes == b"diffpng"
