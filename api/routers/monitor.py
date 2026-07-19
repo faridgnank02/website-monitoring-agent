@@ -43,6 +43,7 @@ class SiteCreate(BaseModel):
     schedule_cron: str = "0 */6 * * *"
     use_case: str = "general"
     tags: list = []
+    screenshot_enabled: bool = False
 
 
 class SiteUpdate(BaseModel):
@@ -52,6 +53,7 @@ class SiteUpdate(BaseModel):
     use_case: Optional[str] = None
     tags: Optional[list] = None
     active: Optional[bool] = None
+    screenshot_enabled: Optional[bool] = None
 
 
 class SiteOut(BaseModel):
@@ -63,6 +65,7 @@ class SiteOut(BaseModel):
     use_case: str
     tags: list
     active: bool
+    screenshot_enabled: bool
     created_at: datetime
     last_checked_at: Optional[datetime]
     last_change_score: Optional[float]
