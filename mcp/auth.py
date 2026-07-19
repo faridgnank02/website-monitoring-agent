@@ -1,4 +1,5 @@
 from fastapi import Request, HTTPException
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import os
 
@@ -11,5 +12,8 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if request.url.path.startswith("/mcp"):
             api_key = request.headers.get("X-API-Key")
             if not api_key or api_key != MCP_API_KEY:
-                raise HTTPException(status_code=403, detail="Invalid API key")
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Invalid API key"}
+                )
         return await call_next(request)

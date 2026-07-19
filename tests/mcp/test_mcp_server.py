@@ -90,3 +90,23 @@ def test_sse_endpoint_streams_events():
     assert hasattr(mcp.transport, 'sse_endpoint')
     assert hasattr(mcp.transport, 'sse_router')
     assert hasattr(mcp.transport, 'mcp_server')
+
+
+def test_mcp_rejects_missing_api_key():
+    client = TestClient(app)
+    response = client.post("/mcp/initialize")
+    assert response.status_code == 403
+
+
+def test_mcp_rejects_invalid_api_key():
+    client = TestClient(app)
+    headers = {"X-API-Key": "wrong-key"}
+    response = client.post("/mcp/initialize", headers=headers)
+    assert response.status_code == 403
+
+
+def test_mcp_accepts_valid_api_key():
+    client = TestClient(app)
+    headers = {"X-API-Key": "test-secret-key"}
+    response = client.post("/mcp/initialize", headers=headers)
+    assert response.status_code == 200
