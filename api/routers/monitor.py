@@ -143,6 +143,7 @@ def create_site(body: SiteCreate, db: Session = Depends(get_db), user: User = De
         schedule_cron=body.schedule_cron,
         use_case=body.use_case,
         tags=body.tags,
+        screenshot_enabled=body.screenshot_enabled,
     )
     db.add(site)
     db.commit()
@@ -225,6 +226,63 @@ def get_diff(
         change_score=change.change_score,
         diff_summary=change.diff_summary,
     )
+
+
+# ---------------------------------------------------------------------------
+# Screenshot & Visual Diff endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/sites/{site_id}/screenshots/{snapshot_id}")
+def get_screenshot(
+    site_id: int,
+    snapshot_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return the raw screenshot PNG for a snapshot."""
+    site = _get_site_or_404(site_id, user.id, db)
+    snapshot = db.query(MonitorSnapshot).filter(
+        MonitorSnapshot.id == snapshot_id,
+        MonitorSnapshot.site_id == site_id,
+    ).first()
+    if not snapshot or not snapshot.screenshot_path:
+        raise HTTPException(status_code=404, detail="Screenshot not found")
+
+    from core.visual.storage import FileSystemScreenshotStorage
+    storage = FileSystemScreenshotStorage(".")
+    data = storage.load(snapshot.screenshot_path)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Screenshot file missing")
+    return StreamingResponse(iter([data]), media_type="image/png")
+
+
+@router.get("/changes/{change_id}/visual-diff")
+def get_visual_diff(
+    change_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return the visual diff overlay PNG for a change."""
+    change = db.query(MonitorChange).filter(MonitorChange.id == change_id).first()
+    if not change:
+        raise HTTPException(status_code=404, detail="Change not found")
+    # Ownership check via site
+    site = db.query(MonitorSite).filter(
+        MonitorSite.id == change.site_id,
+        MonitorSite.user_id == user.id,
+    ).first()
+    if not site:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if not change.visual_diff_path:
+        raise HTTPException(status_code=404, detail="Visual diff not found")
+
+    from core.visual.storage import FileSystemScreenshotStorage
+    storage = FileSystemScreenshotStorage(".")
+    data = storage.load(change.visual_diff_path)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Visual diff file missing")
+    return StreamingResponse(iter([data]), media_type="image/png")
 
 
 # ---------------------------------------------------------------------------
@@ -361,6 +419,63 @@ async def sse_stream(token: Optional[str] = None):
             _sse_subscribers[uid].remove(queue)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+# Screenshot & Visual Diff endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/sites/{site_id}/screenshots/{snapshot_id}")
+def get_screenshot(
+    site_id: int,
+    snapshot_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return the raw screenshot PNG for a snapshot."""
+    site = _get_site_or_404(site_id, user.id, db)
+    snapshot = db.query(MonitorSnapshot).filter(
+        MonitorSnapshot.id == snapshot_id,
+        MonitorSnapshot.site_id == site_id,
+    ).first()
+    if not snapshot or not snapshot.screenshot_path:
+        raise HTTPException(status_code=404, detail="Screenshot not found")
+
+    from core.visual.storage import FileSystemScreenshotStorage
+    storage = FileSystemScreenshotStorage(".")
+    data = storage.load(snapshot.screenshot_path)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Screenshot file missing")
+    return StreamingResponse(iter([data]), media_type="image/png")
+
+
+@router.get("/changes/{change_id}/visual-diff")
+def get_visual_diff(
+    change_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return the visual diff overlay PNG for a change."""
+    change = db.query(MonitorChange).filter(MonitorChange.id == change_id).first()
+    if not change:
+        raise HTTPException(status_code=404, detail="Change not found")
+    # Ownership check via site
+    site = db.query(MonitorSite).filter(
+        MonitorSite.id == change.site_id,
+        MonitorSite.user_id == user.id,
+    ).first()
+    if not site:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if not change.visual_diff_path:
+        raise HTTPException(status_code=404, detail="Visual diff not found")
+
+    from core.visual.storage import FileSystemScreenshotStorage
+    storage = FileSystemScreenshotStorage(".")
+    data = storage.load(change.visual_diff_path)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Visual diff file missing")
+    return StreamingResponse(iter([data]), media_type="image/png")
 
 
 # ---------------------------------------------------------------------------
