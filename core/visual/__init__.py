@@ -1,3 +1,4 @@
+from core.visual.diff import VisualDiffEngine, VisualDiffError
 from core.visual.models import VisualDiffResult
 from core.visual.screenshot import (
     PlaywrightScreenshotProvider,
@@ -14,5 +15,7 @@ __all__ = [
     "ScreenshotProvider",
     "ScreenshotStorage",
     "StaticScreenshotProvider",
+    "VisualDiffEngine",
+    "VisualDiffError",
     "VisualDiffResult",
 ]
