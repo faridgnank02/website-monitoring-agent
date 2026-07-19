@@ -8,6 +8,8 @@ class Entity(BaseModel):
     entity_id: str
     name: str
     value: str
+    # FIXME: Temporary shim for AnalystAgent backward compatibility.
+    # Remove once AnalystAgent uses correlate_entities() and CorrelatedEntity.
     old_value: Optional[str] = None
     unit: Optional[str] = None
     context: Optional[str] = None

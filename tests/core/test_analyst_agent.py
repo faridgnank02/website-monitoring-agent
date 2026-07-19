@@ -23,3 +23,13 @@ def test_analyst_classifies_price_drop():
     assert event.has_change is True
     assert event.change_type == "price_drop"
     assert event.severity == "high"
+
+
+def test_classify_change_with_dict_entities():
+    agent = AnalystAgent()
+    comparison = MagicMock(added_lines=[], removed_lines=[])
+    entities = [{"name": "price", "value": "$10", "old_value": "$15"}]
+
+    change_type = agent._classify_change(entities, comparison)
+
+    assert change_type == "price_drop"
