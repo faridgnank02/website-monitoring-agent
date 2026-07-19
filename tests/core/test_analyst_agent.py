@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
-from core.agents.analyst import AnalystAgent
+from core.agents.analyst import AnalystAgent, _parse_price
 from core.agents.events import ScoutEvent
-from core.entities.models import Entity
+from core.entities.models import CorrelatedEntity, Entity
 from src.modules.content_comparator import ComparisonResult
 
 
@@ -234,3 +234,26 @@ def test_removed_entity():
         result = agent.run(scout, old_snap, new_snap)
 
     assert result.change_type == "content_update"
+
+
+def test_parse_price_handles_malformed_and_european():
+    assert _parse_price("$.") is None
+    assert _parse_price("$1.2.3") is None
+    assert _parse_price("19,99 EUR") == 1999.0
+    assert _parse_price("$1,234.56") == 1234.56
+
+
+def test_price_drop_with_malformed_price_continues():
+    agent = AnalystAgent(llm_router=MagicMock())
+    correlated = [
+        CorrelatedEntity(
+            entity_id="p",
+            name="price",
+            old_value="N/A",
+            new_value="$.",
+            changed=True,
+            status="changed",
+        )
+    ]
+    comparison = MagicMock()
+    assert agent._classify_change(correlated, comparison) == "content_update"

@@ -26,12 +26,23 @@ def _normalize_snapshot_entities(raw_entities: Optional[Union[list, dict]]) -> l
 
 
 def _parse_price(value: str) -> Optional[float]:
-    """Extract a numeric price from a string, ignoring currency symbols and formatting."""
-    cleaned = re.sub(r"[^\d.,]", "", value or "")
+    """Parse a price string. Returns None if unparseable.
+
+    NOTE: This is a simple parser. It strips non-numeric characters and treats
+    commas as thousand separators, so European-style decimals like "19,99" will
+    be parsed as 1999.0. A locale-aware parser can be added later.
+    """
+    if not value:
+        return None
+    cleaned = re.sub(r"[^\d.,]", "", value)
+    # Treat comma as thousand separator for simplicity
     cleaned = cleaned.replace(",", "")
     if not cleaned:
         return None
-    return float(cleaned)
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
 
 
 class AnalystAgent:
@@ -89,11 +100,12 @@ class AnalystAgent:
             if is_price:
                 old_val = _parse_price(entity.old_value)
                 new_val = _parse_price(entity.new_value)
-                if old_val is not None and new_val is not None:
-                    if new_val < old_val:
-                        return "price_drop"
-                    if new_val > old_val:
-                        return "price_rise"
+                if old_val is None or new_val is None:
+                    continue
+                if new_val < old_val:
+                    return "price_drop"
+                if new_val > old_val:
+                    return "price_rise"
 
         has_added = any(e.status == "added" for e in correlated)
         has_removed = any(e.status == "removed" for e in correlated)
