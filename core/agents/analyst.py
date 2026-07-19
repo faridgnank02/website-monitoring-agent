@@ -4,6 +4,9 @@ from typing import Optional, Union
 
 from core.agents.events import ScoutEvent, AnalysisEvent
 from core.llm.router import LLMRouter
+from core.visual.diff import VisualDiffEngine
+from core.visual.models import VisualDiffResult
+from core.visual.storage import ScreenshotStorage
 from db.models import MonitorSnapshot
 from src.modules import compare_content
 from core.entities.correlator import correlate_entities
@@ -46,8 +49,15 @@ def _parse_price(value: str) -> Optional[float]:
 
 
 class AnalystAgent:
-    def __init__(self, llm_router: Optional[LLMRouter] = None):
+    def __init__(
+        self,
+        llm_router: Optional[LLMRouter] = None,
+        visual_diff_engine: Optional[VisualDiffEngine] = None,
+        screenshot_storage: Optional[ScreenshotStorage] = None,
+    ):
         self.llm_router = llm_router
+        self.visual_diff_engine = visual_diff_engine
+        self.screenshot_storage = screenshot_storage
 
     def run(self, scout: ScoutEvent, old_snapshot: Optional[MonitorSnapshot], new_snapshot: Optional[MonitorSnapshot]) -> AnalysisEvent:
         start = time.time()
@@ -74,6 +84,8 @@ class AnalystAgent:
         severity = self._severity(change_type, comparison.change_score)
         summary = comparison.diff_summary if comparison.has_changes else "No significant changes"
 
+        visual_diff = self._compute_visual_diff(old_snapshot, new_snapshot)
+
         latency_ms = (time.time() - start) * 1000
         return AnalysisEvent(
             run_id=scout.run_id,
@@ -88,7 +100,40 @@ class AnalystAgent:
             semantic_diff_summary=summary,
             latency_ms=latency_ms,
             correlated_entities=correlated,
+            visual_diff_bytes=visual_diff.diff_bytes if visual_diff else None,
+            visual_diff_score=visual_diff.diff_score if visual_diff else None,
+            vision_description=f"Screenshot changed in {visual_diff.changed_regions} regions" if visual_diff else None,
         )
+
+    def _compute_visual_diff(
+        self,
+        old_snapshot: Optional[MonitorSnapshot],
+        new_snapshot: Optional[MonitorSnapshot],
+    ) -> Optional[VisualDiffResult]:
+        if self.visual_diff_engine is None or self.screenshot_storage is None:
+            return None
+        if old_snapshot is None or new_snapshot is None:
+            return None
+        old_bytes = self._load_screenshot(old_snapshot)
+        new_bytes = self._load_screenshot(new_snapshot)
+        if old_bytes is None or new_bytes is None:
+            return None
+        try:
+            result = self.visual_diff_engine.compare(old_bytes, new_bytes)
+            if not result.changed or result.diff_bytes is None:
+                return None
+            return result
+        except Exception:
+            # Log warning in production; swallow in agent to avoid failing the check.
+            return None
+
+    def _load_screenshot(self, snapshot: MonitorSnapshot) -> Optional[bytes]:
+        if not snapshot.screenshot_path:
+            return None
+        try:
+            return self.screenshot_storage.load_snapshot(snapshot.site_id, snapshot.id)
+        except Exception:
+            return None
 
     def _classify_change(self, correlated: list[CorrelatedEntity], comparison) -> str:
         for entity in correlated:

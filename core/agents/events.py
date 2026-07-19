@@ -40,6 +40,7 @@ class AnalysisEvent(AgentEvent):
     modified_lines: int = 0
     visual_diff_path: Optional[str] = None
     visual_diff_bytes: Optional[bytes] = None
+    visual_diff_score: Optional[float] = None
     vision_description: Optional[str] = None
     semantic_diff_summary: Optional[str] = None
     correlated_entities: list[CorrelatedEntity] = Field(default_factory=list)

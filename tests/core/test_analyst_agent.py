@@ -1,7 +1,12 @@
+from typing import Optional
 from unittest.mock import MagicMock, patch
 from core.agents.analyst import AnalystAgent, _parse_price
-from core.agents.events import ScoutEvent
+from core.agents.events import ScoutEvent, AnalysisEvent
 from core.entities.models import CorrelatedEntity, Entity
+from core.visual.diff import VisualDiffEngine
+from core.visual.screenshot import StaticScreenshotProvider
+from core.visual.storage import ScreenshotStorage
+from db.models import MonitorSnapshot
 from src.modules.content_comparator import ComparisonResult
 
 
@@ -257,3 +262,127 @@ def test_price_drop_with_malformed_price_continues():
     ]
     comparison = MagicMock()
     assert agent._classify_change(correlated, comparison) == "content_update"
+
+
+class _MemoryStorage(ScreenshotStorage):
+    def __init__(self):
+        self._data: dict[str, bytes] = {}
+
+    def save(self, relative_path: str, data: bytes) -> str:
+        self._data[relative_path] = data
+        return relative_path
+
+    def load(self, relative_path: str) -> bytes:
+        return self._data[relative_path]
+
+    def delete(self, relative_path: str) -> None:
+        self._data.pop(relative_path, None)
+
+    def save_snapshot(self, site_id: int, snapshot_id: int, data: bytes) -> str:
+        path = f"{site_id}/{snapshot_id}.png"
+        self._data[path] = data
+        return path
+
+    def load_snapshot(self, site_id: int, snapshot_id: int) -> Optional[bytes]:
+        return self._data.get(f"{site_id}/{snapshot_id}.png")
+
+    def save_diff(self, site_id: int, change_id: int, data: bytes) -> str:
+        path = f"{site_id}/diffs/{change_id}.png"
+        self._data[path] = data
+        return path
+
+    def load_diff(self, site_id: int, change_id: int) -> Optional[bytes]:
+        return self._data.get(f"{site_id}/diffs/{change_id}.png")
+
+    def exists(self, relative_path: str) -> bool:
+        return relative_path in self._data
+
+
+def test_analyst_computes_visual_diff_when_screenshots_available():
+    storage = _MemoryStorage()
+    white = StaticScreenshotProvider(width=10, height=10, color=(255, 255, 255))
+    black = StaticScreenshotProvider(width=10, height=10, color=(0, 0, 0))
+    old_path = storage.save_snapshot(1, 1, white.capture("https://example.com"))
+    new_path = storage.save_snapshot(1, 2, black.capture("https://example.com"))
+
+    old_snapshot = MonitorSnapshot(
+        id=1, site_id=1, content_markdown="old", content_hash="old",
+        extracted_entities=[], screenshot_path=old_path,
+    )
+    new_snapshot = MonitorSnapshot(
+        id=2, site_id=1, content_markdown="new", content_hash="new",
+        extracted_entities=[], screenshot_path=new_path,
+    )
+
+    scout = ScoutEvent(
+        run_id="r1", site_id=1, has_change=True, url="https://example.com",
+        content_markdown="new", content_hash="new",
+    )
+
+    agent = AnalystAgent(
+        visual_diff_engine=VisualDiffEngine(),
+        screenshot_storage=storage,
+    )
+    event = agent.run(scout, old_snapshot, new_snapshot)
+
+    assert event.has_change is True
+    assert event.visual_diff_bytes is not None
+    assert event.visual_diff_score is not None
+    assert event.visual_diff_score >= 0.0
+    assert event.vision_description is not None
+
+
+def test_analyst_skips_visual_diff_when_old_screenshot_missing():
+    storage = _MemoryStorage()
+    black = StaticScreenshotProvider(width=10, height=10, color=(0, 0, 0))
+    new_path = storage.save_snapshot(1, 2, black.capture("https://example.com"))
+
+    old_snapshot = MonitorSnapshot(
+        id=1, site_id=1, content_markdown="old", content_hash="old",
+        extracted_entities=[], screenshot_path=None,
+    )
+    new_snapshot = MonitorSnapshot(
+        id=2, site_id=1, content_markdown="new", content_hash="new",
+        extracted_entities=[], screenshot_path=new_path,
+    )
+
+    scout = ScoutEvent(
+        run_id="r1", site_id=1, has_change=True, url="https://example.com",
+        content_markdown="new", content_hash="new",
+    )
+
+    agent = AnalystAgent(
+        visual_diff_engine=VisualDiffEngine(),
+        screenshot_storage=storage,
+    )
+    event = agent.run(scout, old_snapshot, new_snapshot)
+
+    assert event.has_change is True
+    assert event.visual_diff_bytes is None
+
+
+def test_analyst_skips_visual_diff_when_engine_missing():
+    storage = _MemoryStorage()
+    white = StaticScreenshotProvider(width=10, height=10, color=(255, 255, 255))
+    black = StaticScreenshotProvider(width=10, height=10, color=(0, 0, 0))
+    old_path = storage.save_snapshot(1, 1, white.capture("https://example.com"))
+    new_path = storage.save_snapshot(1, 2, black.capture("https://example.com"))
+
+    old_snapshot = MonitorSnapshot(
+        id=1, site_id=1, content_markdown="old", content_hash="old",
+        extracted_entities=[], screenshot_path=old_path,
+    )
+    new_snapshot = MonitorSnapshot(
+        id=2, site_id=1, content_markdown="new", content_hash="new",
+        extracted_entities=[], screenshot_path=new_path,
+    )
+
+    scout = ScoutEvent(
+        run_id="r1", site_id=1, has_change=True, url="https://example.com",
+        content_markdown="new", content_hash="new",
+    )
+
+    agent = AnalystAgent(screenshot_storage=storage)
+    event = agent.run(scout, old_snapshot, new_snapshot)
+
+    assert event.visual_diff_bytes is None
