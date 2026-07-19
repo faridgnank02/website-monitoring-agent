@@ -1,8 +1,19 @@
-from typing import Optional
 from core.entities.models import Entity, CorrelatedEntity
 
 
 def correlate_entities(old: list[Entity], new: list[Entity]) -> list[CorrelatedEntity]:
+    """Correlate two snapshots of entities and classify each as unchanged, changed, added, or removed.
+
+    Args:
+        old: The previous list of entities.
+        new: The current list of entities.
+
+    Returns:
+        A list of CorrelatedEntity objects, one for every entity present in either
+        snapshot. The ``changed`` flag is True for entities that were added, removed,
+        or had their value modified; it is False only for entities that are identical
+        in both snapshots.
+    """
     old_by_id = {e.entity_id: e for e in old}
     new_by_id = {e.entity_id: e for e in new}
 

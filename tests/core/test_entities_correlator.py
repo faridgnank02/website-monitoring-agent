@@ -41,3 +41,41 @@ def test_removed_entity():
     assert len(result) == 1
     assert result[0].status == "removed"
     assert result[0].old_value == "19.99"
+
+
+def test_added_and_removed_in_same_call():
+    old = [
+        Entity(entity_id="prod-1", name="T-Shirt", value="19.99"),
+        Entity(entity_id="prod-2", name="Jeans", value="49.99"),
+    ]
+    new = [
+        Entity(entity_id="prod-2", name="Jeans", value="49.99"),
+        Entity(entity_id="prod-3", name="Jacket", value="89.99"),
+    ]
+    result = correlate_entities(old, new)
+    assert len(result) == 3
+    statuses = {r.entity_id: r.status for r in result}
+    assert statuses["prod-1"] == "removed"
+    assert statuses["prod-2"] == "unchanged"
+    assert statuses["prod-3"] == "added"
+
+
+def test_both_empty_lists():
+    result = correlate_entities([], [])
+    assert result == []
+
+
+def test_added_from_empty_old():
+    new = [Entity(entity_id="prod-1", name="T-Shirt", value="19.99")]
+    result = correlate_entities([], new)
+    assert len(result) == 1
+    assert result[0].status == "added"
+    assert result[0].new_value == "19.99"
+
+
+def test_removed_from_empty_new():
+    old = [Entity(entity_id="prod-1", name="T-Shirt", value="19.99")]
+    result = correlate_entities(old, [])
+    assert len(result) == 1
+    assert result[0].status == "removed"
+    assert result[0].old_value == "19.99"
