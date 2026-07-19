@@ -13,3 +13,7 @@ openai>=1.0.0
 
 # Token encryption
 cryptography>=42.0.0
+
+# Visual diff (screenshots + image processing)
+playwright>=1.45.0
+Pillow>=10.0.0
