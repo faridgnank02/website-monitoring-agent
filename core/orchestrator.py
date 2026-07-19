@@ -13,22 +13,40 @@ from core.actions.registry import ActionHandlerRegistry
 from core.actions.handlers.email import EmailActionHandler
 from core.actions.handlers.slack import SlackActionHandler
 from core.llm.router import LLMRouter
+from core.visual.diff import VisualDiffEngine
+from core.visual.screenshot import ScreenshotProvider
+from core.visual.storage import FileSystemScreenshotStorage, ScreenshotStorage
 from db.models import MonitorSite, MonitorSnapshot, MonitorChange, AuditLog, ApprovalRequest
 from config.settings import load_llm_router_config
 from src.modules import parse_instruction, scrape_url
 
 
 class MonitoringOrchestrator:
-    def __init__(self, db: Session):
+    def __init__(
+        self,
+        db: Session,
+        llm_router: Optional[LLMRouter] = None,
+        screenshot_provider: Optional[ScreenshotProvider] = None,
+        screenshot_storage: Optional[ScreenshotStorage] = None,
+        visual_diff_engine: Optional[VisualDiffEngine] = None,
+    ):
         self.db = db
-        self.llm_router = LLMRouter(load_llm_router_config())
+        self.llm_router = llm_router or LLMRouter(load_llm_router_config())
+        self.screenshot_provider = screenshot_provider
+        self.screenshot_storage = screenshot_storage or FileSystemScreenshotStorage(".")
+        self.visual_diff_engine = visual_diff_engine or VisualDiffEngine()
         self.scout = ScoutAgent(
             llm_router=self.llm_router,
             db=db,
             parse_instruction=parse_instruction,
             scrape_url=scrape_url,
+            screenshot_provider=self.screenshot_provider,
         )
-        self.analyst = AnalystAgent(llm_router=self.llm_router)
+        self.analyst = AnalystAgent(
+            llm_router=self.llm_router,
+            visual_diff_engine=self.visual_diff_engine,
+            screenshot_storage=self.screenshot_storage,
+        )
         self.reporter = ReporterAgent(llm_router=self.llm_router)
         self.action_registry = ActionHandlerRegistry()
         self.action_registry.register(EmailActionHandler())
@@ -127,8 +145,19 @@ class MonitoringOrchestrator:
         self.db.add(snap)
         self.db.flush()
         site.last_checked_at = datetime.utcnow()
+        self._persist_screenshot(snap, event)
         self.db.commit()
         return snap
+
+    def _persist_screenshot(self, snap: MonitorSnapshot, event: ScoutEvent):
+        if event.screenshot_bytes is None:
+            return
+        try:
+            relative_path = self.screenshot_storage.save_snapshot(snap.site_id, snap.id, event.screenshot_bytes)
+            snap.screenshot_path = relative_path
+        except Exception:
+            # Log warning in production; screenshot persistence is best-effort.
+            pass
 
     def _save_failed_snapshot(self, site: MonitorSite, run_id: str, error: str):
         snap = MonitorSnapshot(
@@ -161,8 +190,19 @@ class MonitoringOrchestrator:
         )
         self.db.add(change)
         self.db.flush()
+        self._persist_visual_diff(change, analysis)
         self.db.commit()
         return change
+
+    def _persist_visual_diff(self, change: MonitorChange, analysis: AnalysisEvent):
+        if analysis.visual_diff_bytes is None:
+            return
+        try:
+            relative_path = self.screenshot_storage.save_diff(change.site_id, change.id, analysis.visual_diff_bytes)
+            change.visual_diff_path = relative_path
+        except Exception:
+            # Log warning in production; visual diff persistence is best-effort.
+            pass
 
     def _log(self, run_id: str, site: MonitorSite, actor: str, action: str, event):
         if hasattr(event, "model_dump"):
