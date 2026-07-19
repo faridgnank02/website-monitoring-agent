@@ -1,0 +1,80 @@
+services:
+  # -----------------------------------------------------------------------
+  # FastAPI backend
+  # -----------------------------------------------------------------------
+  api:
+    env_file:
+      - ./config/.env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite:////data/monitor.db
+      ENV: production
+    volumes:
+      - db_data:/data
+      - ./config:/app/config:ro          # sites.yaml, .env
+      - ./credentials.json:/app/credentials.json:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # -----------------------------------------------------------------------
+  # DB-backed scheduler (runs monitoring cycles on cron schedules)
+  # -----------------------------------------------------------------------
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "src/scheduler_db.py"]
+    env_file:
+      - ./config/.env
+    environment:
+      DATABASE_URL: sqlite:////data/monitor.db
+    volumes:
+      - db_data:/data
+      - ./config:/app/config:ro
+      - ./credentials.json:/app/credentials.json:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # -----------------------------------------------------------------------
+  # MCP Server (Model Context Protocol) - exposes action handlers to AI agents
+  # -----------------------------------------------------------------------
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m mcp.main
+    ports:
+      - "8001:8001"
+    environment:
+      - MCP_API_KEY=${MCP_API_KEY}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # -----------------------------------------------------------------------
+  # Next.js frontend
+  # -----------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  db_data:
