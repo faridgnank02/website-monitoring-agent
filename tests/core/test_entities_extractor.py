@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from core.entities.extractor import extract_entities
+from core.entities.extractor import extract_entities, _strip_code_fences
 from core.entities.models import Entity
 from core.llm.config import LLMResponse
 
@@ -157,3 +157,78 @@ def test_extract_entities_strips_uppercase_json_fence():
     )
     result = extract_entities("T-Shirt $19.99", router)
     assert result == [Entity(entity_id="t-shirt", name="T-Shirt", value="19.99", unit="USD")]
+
+
+def test_extract_entities_strips_fence_with_space_before_language():
+    router = MagicMock()
+    router.chat.return_value = LLMResponse(
+        content='``` json\n[{"name": "T-Shirt", "value": "19.99", "unit": "USD"}]\n```',
+        model="mixtral",
+        usage={"prompt_tokens": 100, "completion_tokens": 20},
+        cost_input_per_1k=0.0,
+        cost_output_per_1k=0.0,
+        latency_ms=120.0,
+    )
+    result = extract_entities("T-Shirt $19.99", router)
+    assert result == [Entity(entity_id="t-shirt", name="T-Shirt", value="19.99", unit="USD")]
+
+
+def test_extract_entities_handles_preamble_before_fence():
+    router = MagicMock()
+    router.chat.return_value = LLMResponse(
+        content='Here is the JSON:\n```json\n[{"name": "T-Shirt", "value": "19.99", "unit": "USD"}]\n```',
+        model="mixtral",
+        usage={"prompt_tokens": 100, "completion_tokens": 20},
+        cost_input_per_1k=0.0,
+        cost_output_per_1k=0.0,
+        latency_ms=120.0,
+    )
+    result = extract_entities("T-Shirt $19.99", router)
+    assert result == [Entity(entity_id="t-shirt", name="T-Shirt", value="19.99", unit="USD")]
+
+
+def test_extract_entities_skips_whitespace_only_name_or_value():
+    router = MagicMock()
+    router.chat.return_value = LLMResponse(
+        content='[{"name": "T-Shirt", "value": "19.99"}, {"name": "   ", "value": "x"}, {"name": "y", "value": "   "}]',
+        model="mixtral",
+        usage={"prompt_tokens": 100, "completion_tokens": 20},
+        cost_input_per_1k=0.0,
+        cost_output_per_1k=0.0,
+        latency_ms=120.0,
+    )
+    result = extract_entities("T-Shirt $19.99", router)
+    assert result == [Entity(entity_id="t-shirt", name="T-Shirt", value="19.99", unit=None, context=None)]
+
+
+def test_strip_code_fences_no_fences():
+    assert _strip_code_fences('[{"name": "x"}]') == '[{"name": "x"}]'
+
+
+def test_strip_code_fences_json_language():
+    assert _strip_code_fences('```json\n[{"name": "x"}]\n```') == '[{"name": "x"}]'
+
+
+def test_strip_code_fences_json_language_with_space():
+    assert _strip_code_fences('``` json\n[{"name": "x"}]\n```') == '[{"name": "x"}]'
+
+
+def test_strip_code_fences_uppercase_json_language():
+    assert _strip_code_fences('```JSON\n[{"name": "x"}]\n```') == '[{"name": "x"}]'
+
+
+def test_strip_code_fences_preamble_before_fence():
+    assert _strip_code_fences(' preamble text\n```json\n[{"name": "x"}]\n```') == '[{"name": "x"}]'
+
+
+def test_strip_code_fences_multiple_fences_takes_first():
+    content = '```json\n[{"name": "x"}]\n```\n```json\n[{"name": "y"}]\n```'
+    assert _strip_code_fences(content) == '[{"name": "x"}]'
+
+
+def test_strip_code_fences_empty_json_array():
+    assert _strip_code_fences('```json\n[]\n```') == '[]'
+
+
+def test_strip_code_fences_content_is_none():
+    assert _strip_code_fences(None) == ""

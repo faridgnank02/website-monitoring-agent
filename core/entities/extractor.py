@@ -27,15 +27,13 @@ def _slugify(text: str) -> str:
     return text or "entity"
 
 
-def _strip_code_fences(content: str) -> str:
+def _strip_code_fences(content: Optional[str]) -> str:
+    if content is None:
+        return ""
     content = content.strip()
-    if content.startswith("```"):
-        content = content[3:]
-        if content.lower().startswith("json"):
-            content = content[4:]
-        content = content.strip()
-    if content.endswith("```"):
-        content = content[:-3].strip()
+    match = re.search(r"```\s*(?:\w+)?\s*\n?(.*?)```", content, re.DOTALL)
+    if match:
+        return match.group(1).strip()
     return content
 
 
