@@ -13,8 +13,3 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             if not api_key or api_key != MCP_API_KEY:
                 raise HTTPException(status_code=403, detail="Invalid API key")
         return await call_next(request)
-
-
-def api_key_middleware(app):
-    app.add_middleware(APIKeyMiddleware)
-    return app

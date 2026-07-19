@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from mcp.transport import sse_router
-from mcp.auth import api_key_middleware
+from mcp.auth import APIKeyMiddleware
 
 
 app = FastAPI(
@@ -18,7 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.middleware("http")(api_key_middleware)
+app.add_middleware(APIKeyMiddleware)
 
 app.include_router(sse_router, prefix="/mcp")
 
