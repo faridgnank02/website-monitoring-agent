@@ -5,6 +5,19 @@ from core.llm.router import LLMRouter
 from core.llm.config import TaskProfile
 from db.models import MonitorSnapshot
 from src.modules import compare_content
+from core.entities.correlator import correlate_entities
+from core.entities.models import CorrelatedEntity, Entity
+
+
+def _normalize_snapshot_entities(raw_entities: list) -> list[Entity]:
+    """Convert DB JSON list into typed Entity objects."""
+    entities = []
+    for raw in raw_entities:
+        if isinstance(raw, Entity):
+            entities.append(raw)
+        elif isinstance(raw, dict):
+            entities.append(Entity(**raw))
+    return entities
 
 
 class AnalystAgent:
@@ -28,8 +41,12 @@ class AnalystAgent:
             threshold=0.0,
         )
 
-        change_type = self._classify_change(scout.entities, comparison)
-        severity = self._severity(change_type, comparison.change_score)
+        old_entities = _normalize_snapshot_entities(old_snapshot.extracted_entities or [])
+        new_entities = _normalize_snapshot_entities(new_snapshot.extracted_entities or [])
+        correlated = correlate_entities(old_entities, new_entities)
+
+        change_type = self._classify_change(correlated, comparison)
+        severity = self._severity(change_type, comparison.change_score, correlated)
         summary = comparison.diff_summary if comparison.has_changes else "No significant changes"
 
         latency_ms = (time.time() - start) * 1000
@@ -45,34 +62,33 @@ class AnalystAgent:
             modified_lines=len(comparison.modified_lines),
             semantic_diff_summary=summary,
             latency_ms=latency_ms,
+            correlated_entities=correlated,
         )
 
-    def _classify_change(self, entities: list, comparison) -> str:
-        def _entity_attr(entity, key, default=""):
-            if isinstance(entity, dict):
-                return entity.get(key, default)
-            val = getattr(entity, key, default)
-            return default if val is None else val
-
-        for entity in entities:
-            name = str(_entity_attr(entity, "name")).lower()
-            old = str(_entity_attr(entity, "old_value"))
-            new = str(_entity_attr(entity, "value"))
-            if "price" in name:
+    def _classify_change(self, correlated: list[CorrelatedEntity], comparison) -> str:
+        for entity in correlated:
+            if entity.status != "changed":
+                continue
+            name = entity.name.lower()
+            unit = (entity.unit or "").upper()
+            is_price = "price" in name or unit in ("USD", "EUR", "GBP", "$")
+            if is_price:
                 try:
-                    old_val = float(old.replace("$", "").replace(",", ""))
-                    new_val = float(new.replace("$", "").replace(",", ""))
+                    old_val = float((entity.old_value or "").replace("$", "").replace(",", ""))
+                    new_val = float((entity.new_value or "").replace("$", "").replace(",", ""))
                     if new_val < old_val:
                         return "price_drop"
                     if new_val > old_val:
                         return "price_rise"
-                except ValueError:
+                except (ValueError, TypeError):
                     pass
-        if comparison.added_lines and not comparison.removed_lines:
+
+        has_added = any(e.status == "added" for e in correlated)
+        if has_added and not comparison.removed_lines:
             return "new_product"
         return "content_update"
 
-    def _severity(self, change_type: str, change_score: float) -> str:
+    def _severity(self, change_type: str, change_score: float, correlated: list[CorrelatedEntity]) -> str:
         if change_type in ("price_drop", "price_rise"):
             return "high" if change_score > 1.0 else "medium"
         if change_score > 5.0:
