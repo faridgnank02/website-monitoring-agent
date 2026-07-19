@@ -34,7 +34,7 @@ def test_orchestrator_runs_pipeline():
 
 
 def test_orchestrator_first_run_no_change_detected():
-    db = MagicMock()
+    db = MagicMock(spec=Session)
     db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
     site = MagicMock()
     site.id = 1
@@ -44,8 +44,10 @@ def test_orchestrator_first_run_no_change_detected():
     site.active = True
     site.user_id = 1
 
-    with patch("core.orchestrator.parse_instruction") as mock_parse, \
+    with patch("core.orchestrator.LLMRouter") as mock_llm_router, \
+         patch("core.orchestrator.parse_instruction") as mock_parse, \
          patch("core.orchestrator.scrape_url") as mock_scrape:
+        mock_llm_router.return_value = MagicMock()
         mock_parse.return_value = MagicMock(success=True, url="https://example.com", error=None)
         mock_scrape.return_value = MagicMock(success=True, markdown="Hello", html="", metadata={}, error=None)
         orch = MonitoringOrchestrator(db)
@@ -57,7 +59,7 @@ def test_orchestrator_first_run_no_change_detected():
 
 
 def test_orchestrator_identical_content_no_change():
-    db = MagicMock()
+    db = MagicMock(spec=Session)
     previous = MagicMock()
     previous.content_hash = hashlib.md5(b"Hello").hexdigest()
     db.query.return_value.filter.return_value.order_by.return_value.first.return_value = previous
@@ -70,8 +72,10 @@ def test_orchestrator_identical_content_no_change():
     site.active = True
     site.user_id = 1
 
-    with patch("core.orchestrator.parse_instruction") as mock_parse, \
+    with patch("core.orchestrator.LLMRouter") as mock_llm_router, \
+         patch("core.orchestrator.parse_instruction") as mock_parse, \
          patch("core.orchestrator.scrape_url") as mock_scrape:
+        mock_llm_router.return_value = MagicMock()
         mock_parse.return_value = MagicMock(success=True, url="https://example.com", error=None)
         mock_scrape.return_value = MagicMock(success=True, markdown="Hello", html="", metadata={}, error=None)
         orch = MonitoringOrchestrator(db)
@@ -82,7 +86,7 @@ def test_orchestrator_identical_content_no_change():
 
 
 def test_orchestrator_scrape_failure_returns_error():
-    db = MagicMock()
+    db = MagicMock(spec=Session)
     db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
     site = MagicMock()
     site.id = 1
@@ -92,8 +96,10 @@ def test_orchestrator_scrape_failure_returns_error():
     site.active = True
     site.user_id = 1
 
-    with patch("core.orchestrator.parse_instruction") as mock_parse, \
+    with patch("core.orchestrator.LLMRouter") as mock_llm_router, \
+         patch("core.orchestrator.parse_instruction") as mock_parse, \
          patch("core.orchestrator.scrape_url") as mock_scrape:
+        mock_llm_router.return_value = MagicMock()
         mock_parse.return_value = MagicMock(success=True, url="https://example.com", error=None)
         mock_scrape.return_value = MagicMock(success=False, markdown="", html="", metadata={}, error="Connection failed")
         orch = MonitoringOrchestrator(db)
@@ -101,3 +107,27 @@ def test_orchestrator_scrape_failure_returns_error():
 
     assert result["success"] is False
     assert "Connection failed" in result["error"]
+
+
+def test_orchestrator_parse_instruction_failure_returns_error():
+    db = MagicMock(spec=Session)
+    db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+    site = MagicMock()
+    site.id = 1
+    site.instruction = "bad instruction"
+    site.url = None
+    site.threshold = 1.0
+    site.active = True
+    site.user_id = 1
+
+    with patch("core.orchestrator.LLMRouter") as mock_llm_router, \
+         patch("core.orchestrator.parse_instruction") as mock_parse, \
+         patch("core.orchestrator.scrape_url") as mock_scrape:
+        mock_llm_router.return_value = MagicMock()
+        mock_parse.return_value = MagicMock(success=False, url="", error="Could not parse instruction")
+        mock_scrape.return_value = MagicMock(success=True, markdown="", html="", metadata={}, error=None)
+        orch = MonitoringOrchestrator(db)
+        result = orch.run(site)
+
+    assert result["success"] is False
+    assert "Could not parse instruction" in result["error"]

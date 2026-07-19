@@ -8,7 +8,7 @@ from core.entities.extractor import extract_entities
 from core.entities.models import Entity
 from core.llm.router import LLMRouter
 from db.models import MonitorSite, MonitorSnapshot
-from src.modules import parse_instruction, scrape_url
+from src.modules import parse_instruction as _parse_instruction, scrape_url as _scrape_url
 
 
 class ScoutAgent:
@@ -16,13 +16,13 @@ class ScoutAgent:
         self,
         llm_router: Optional[LLMRouter] = None,
         db: Optional[Session] = None,
-        parse_instruction=None,
-        scrape_url=None,
+        parse_instruction=_parse_instruction,
+        scrape_url=_scrape_url,
     ):
         self.llm_router = llm_router
         self.db = db
-        self.parse_instruction = parse_instruction if parse_instruction is not None else globals()["parse_instruction"]
-        self.scrape_url = scrape_url if scrape_url is not None else globals()["scrape_url"]
+        self.parse_instruction = parse_instruction
+        self.scrape_url = scrape_url
 
     def run(self, site: MonitorSite, previous_snapshot: Optional[MonitorSnapshot] = None) -> ScoutEvent:
         start = time.time()
