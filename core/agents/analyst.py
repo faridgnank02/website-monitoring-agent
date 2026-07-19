@@ -1,16 +1,21 @@
+import re
 import time
-from typing import Optional
+from typing import Optional, Union
+
 from core.agents.events import ScoutEvent, AnalysisEvent
 from core.llm.router import LLMRouter
-from core.llm.config import TaskProfile
 from db.models import MonitorSnapshot
 from src.modules import compare_content
 from core.entities.correlator import correlate_entities
 from core.entities.models import CorrelatedEntity, Entity
 
 
-def _normalize_snapshot_entities(raw_entities: list) -> list[Entity]:
-    """Convert DB JSON list into typed Entity objects."""
+def _normalize_snapshot_entities(raw_entities: Optional[Union[list, dict]]) -> list[Entity]:
+    """Convert DB JSON list/dict into typed Entity objects."""
+    if raw_entities is None:
+        return []
+    if isinstance(raw_entities, dict):
+        raw_entities = raw_entities.get("entities", [])
     entities = []
     for raw in raw_entities:
         if isinstance(raw, Entity):
@@ -18,6 +23,15 @@ def _normalize_snapshot_entities(raw_entities: list) -> list[Entity]:
         elif isinstance(raw, dict):
             entities.append(Entity(**raw))
     return entities
+
+
+def _parse_price(value: str) -> Optional[float]:
+    """Extract a numeric price from a string, ignoring currency symbols and formatting."""
+    cleaned = re.sub(r"[^\d.,]", "", value or "")
+    cleaned = cleaned.replace(",", "")
+    if not cleaned:
+        return None
+    return float(cleaned)
 
 
 class AnalystAgent:
@@ -46,7 +60,7 @@ class AnalystAgent:
         correlated = correlate_entities(old_entities, new_entities)
 
         change_type = self._classify_change(correlated, comparison)
-        severity = self._severity(change_type, comparison.change_score, correlated)
+        severity = self._severity(change_type, comparison.change_score)
         summary = comparison.diff_summary if comparison.has_changes else "No significant changes"
 
         latency_ms = (time.time() - start) * 1000
@@ -73,22 +87,21 @@ class AnalystAgent:
             unit = (entity.unit or "").upper()
             is_price = "price" in name or unit in ("USD", "EUR", "GBP", "$")
             if is_price:
-                try:
-                    old_val = float((entity.old_value or "").replace("$", "").replace(",", ""))
-                    new_val = float((entity.new_value or "").replace("$", "").replace(",", ""))
+                old_val = _parse_price(entity.old_value)
+                new_val = _parse_price(entity.new_value)
+                if old_val is not None and new_val is not None:
                     if new_val < old_val:
                         return "price_drop"
                     if new_val > old_val:
                         return "price_rise"
-                except (ValueError, TypeError):
-                    pass
 
         has_added = any(e.status == "added" for e in correlated)
-        if has_added and not comparison.removed_lines:
+        has_removed = any(e.status == "removed" for e in correlated)
+        if has_added and not has_removed:
             return "new_product"
         return "content_update"
 
-    def _severity(self, change_type: str, change_score: float, correlated: list[CorrelatedEntity]) -> str:
+    def _severity(self, change_type: str, change_score: float) -> str:
         if change_type in ("price_drop", "price_rise"):
             return "high" if change_score > 1.0 else "medium"
         if change_score > 5.0:
