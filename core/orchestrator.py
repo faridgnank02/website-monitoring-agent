@@ -1,8 +1,11 @@
 import hashlib
+import logging
 import uuid
 from datetime import datetime
 from typing import Optional, Any
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from core.agents.events import ScoutEvent, AnalysisEvent, ReportEvent, ActionEvent
 from core.agents.scout import ScoutAgent
@@ -156,8 +159,7 @@ class MonitoringOrchestrator:
             relative_path = self.screenshot_storage.save_snapshot(snap.site_id, snap.id, event.screenshot_bytes)
             snap.screenshot_path = relative_path
         except Exception:
-            # Log warning in production; screenshot persistence is best-effort.
-            pass
+            logger.warning("Failed to persist screenshot for snapshot %s", snap.id, exc_info=True)
 
     def _save_failed_snapshot(self, site: MonitorSite, run_id: str, error: str):
         snap = MonitorSnapshot(
@@ -201,8 +203,7 @@ class MonitoringOrchestrator:
             relative_path = self.screenshot_storage.save_diff(change.site_id, change.id, analysis.visual_diff_bytes)
             change.visual_diff_path = relative_path
         except Exception:
-            # Log warning in production; visual diff persistence is best-effort.
-            pass
+            logger.warning("Failed to persist visual diff for change %s", change.id, exc_info=True)
 
     def _log(self, run_id: str, site: MonitorSite, actor: str, action: str, event):
         if hasattr(event, "model_dump"):

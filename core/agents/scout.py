@@ -1,9 +1,12 @@
 import hashlib
+import logging
 import time
 from typing import Optional
 from sqlalchemy.orm import Session
 
 from core.agents.events import ScoutEvent
+
+logger = logging.getLogger(__name__)
 from core.entities.extractor import extract_entities
 from core.entities.models import Entity
 from core.llm.router import LLMRouter
@@ -76,6 +79,6 @@ class ScoutAgent:
         try:
             return self.screenshot_provider.capture(url)
         except Exception:
-            # Log warning in production; swallow in agent to avoid failing the check.
+            logger.warning("Screenshot capture failed for %s", url, exc_info=True)
             return None
 

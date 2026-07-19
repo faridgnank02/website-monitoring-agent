@@ -1,9 +1,12 @@
+import logging
 import re
 import time
 from typing import Optional, Union
 
 from core.agents.events import ScoutEvent, AnalysisEvent
 from core.llm.router import LLMRouter
+
+logger = logging.getLogger(__name__)
 from core.visual.diff import VisualDiffEngine
 from core.visual.models import VisualDiffResult
 from core.visual.storage import ScreenshotStorage
@@ -124,7 +127,7 @@ class AnalystAgent:
                 return None
             return result
         except Exception:
-            # Log warning in production; swallow in agent to avoid failing the check.
+            logger.warning("Visual diff failed for snapshots %s -> %s", old_snapshot.id, new_snapshot.id, exc_info=True)
             return None
 
     def _load_screenshot(self, snapshot: MonitorSnapshot) -> Optional[bytes]:
