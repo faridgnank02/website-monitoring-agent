@@ -38,3 +38,40 @@ def test_list_tools_returns_all_six_handlers():
     for tool in tools:
         assert "inputSchema" in tool
         assert "outputSchema" in tool
+
+
+def test_call_tool_email_returns_action_result():
+    registry = ActionHandlerRegistry()
+    registry.register(EmailActionHandler())
+    
+    server = MCPServer(registry)
+    result = server.call_tool("email", {"payload": {"subject": "test", "body": "hello"}})
+    
+    assert "content" in result
+    content = result["content"][0]["text"]
+    assert "success" in content
+    assert "message" in content
+
+
+def test_call_tool_slack_returns_action_result():
+    registry = ActionHandlerRegistry()
+    registry.register(SlackActionHandler())
+    
+    server = MCPServer(registry)
+    result = server.call_tool("slack", {"payload": {"webhook": "http://slack", "message": "test"}})
+    
+    assert "content" in result
+    content = result["content"][0]["text"]
+    assert "success" in content
+
+
+def test_call_tool_unknown_handler_raises():
+    registry = ActionHandlerRegistry()
+    registry.register(EmailActionHandler())
+    
+    server = MCPServer(registry)
+    try:
+        server.call_tool("unknown", {})
+        assert False, "Should have raised"
+    except ValueError as e:
+        assert "Handler not found" in str(e)
