@@ -110,3 +110,46 @@ def test_mcp_accepts_valid_api_key():
     headers = {"X-API-Key": "test-secret-key"}
     response = client.post("/mcp/initialize", headers=headers)
     assert response.status_code == 200
+
+
+def test_full_mcp_flow():
+    client = TestClient(app)
+    headers = {"X-API-Key": "test-secret-key"}
+    
+    # Initialize
+    response = client.post("/mcp/initialize", headers=headers)
+    assert response.status_code == 200
+    init_data = response.json()
+    assert init_data["protocolVersion"] == "2024-11-05"
+    
+    # List tools
+    response = client.post(
+        "/mcp/message",
+        headers=headers,
+        json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+    )
+    assert response.status_code == 200
+    tools = response.json()["result"]["tools"]
+    assert len(tools) == 6
+    tool_names = {t["name"] for t in tools}
+    assert tool_names == {"email", "slack", "notion", "github", "n8n", "webhook"}
+    
+    # Call email tool
+    response = client.post(
+        "/mcp/message",
+        headers=headers,
+        json={
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {"name": "email", "arguments": {"payload": {"subject": "Test", "body": "Hello"}}}
+        }
+    )
+    assert response.status_code == 200
+    result = response.json()["result"]
+    assert "content" in result
+    content_text = result["content"][0]["text"]
+    import json
+    parsed = json.loads(content_text)
+    assert parsed["success"] is True
+    assert parsed["type"] == "email"
