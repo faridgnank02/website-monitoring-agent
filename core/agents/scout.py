@@ -7,6 +7,7 @@ from core.agents.events import ScoutEvent
 from core.entities.extractor import extract_entities
 from core.entities.models import Entity
 from core.llm.router import LLMRouter
+from core.visual.screenshot import ScreenshotProvider
 from db.models import MonitorSite, MonitorSnapshot
 from src.modules import parse_instruction, scrape_url
 
@@ -18,11 +19,13 @@ class ScoutAgent:
         db: Optional[Session] = None,
         parse_instruction=parse_instruction,
         scrape_url=scrape_url,
+        screenshot_provider: Optional[ScreenshotProvider] = None,
     ):
         self.llm_router = llm_router
         self.db = db
         self.parse_instruction = parse_instruction
         self.scrape_url = scrape_url
+        self.screenshot_provider = screenshot_provider
 
     def run(self, site: MonitorSite, previous_snapshot: Optional[MonitorSnapshot] = None) -> ScoutEvent:
         start = time.time()
@@ -50,6 +53,8 @@ class ScoutAgent:
         if has_change:
             entities = extract_entities(scraped.markdown, self.llm_router)
 
+        screenshot_bytes = self._capture_screenshot(parsed.url, site)
+
         latency_ms = (time.time() - start) * 1000
         return ScoutEvent(
             run_id="",
@@ -61,6 +66,16 @@ class ScoutAgent:
             content_hash=content_hash,
             metadata=scraped.metadata if isinstance(scraped.metadata, dict) else {},
             entities=entities,
+            screenshot_bytes=screenshot_bytes,
             latency_ms=latency_ms,
         )
+
+    def _capture_screenshot(self, url: str, site: MonitorSite) -> Optional[bytes]:
+        if not site.screenshot_enabled or self.screenshot_provider is None:
+            return None
+        try:
+            return self.screenshot_provider.capture(url)
+        except Exception:
+            # Log warning in production; swallow in agent to avoid failing the check.
+            return None
 

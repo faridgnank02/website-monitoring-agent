@@ -46,6 +46,7 @@ class MonitorSite(Base):
     # use_case: ecommerce_pricing | ecommerce_stock | regulatory | press | competitor | general
     tags: Mapped[Optional[dict]] = mapped_column(JSON, default=dict)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    screenshot_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     last_change_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
