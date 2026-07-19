@@ -12,13 +12,21 @@ from src.modules import parse_instruction, scrape_url
 
 
 class ScoutAgent:
-    def __init__(self, llm_router: Optional[LLMRouter] = None, db: Optional[Session] = None):
+    def __init__(
+        self,
+        llm_router: Optional[LLMRouter] = None,
+        db: Optional[Session] = None,
+        parse_instruction=None,
+        scrape_url=None,
+    ):
         self.llm_router = llm_router
         self.db = db
+        self.parse_instruction = parse_instruction if parse_instruction is not None else globals()["parse_instruction"]
+        self.scrape_url = scrape_url if scrape_url is not None else globals()["scrape_url"]
 
     def run(self, site: MonitorSite, previous_snapshot: Optional[MonitorSnapshot] = None) -> ScoutEvent:
         start = time.time()
-        parsed = parse_instruction(site.instruction)
+        parsed = self.parse_instruction(site.instruction)
         if not parsed.success:
             return ScoutEvent(
                 run_id="", site_id=site.id, has_change=False, url="", error=parsed.error
@@ -29,7 +37,7 @@ class ScoutAgent:
             if self.db:
                 self.db.commit()
 
-        scraped = scrape_url(parsed.url)
+        scraped = self.scrape_url(parsed.url)
         if not scraped.success:
             return ScoutEvent(
                 run_id="", site_id=site.id, has_change=False, url=parsed.url, error=scraped.error

@@ -15,13 +15,19 @@ from core.actions.handlers.slack import SlackActionHandler
 from core.llm.router import LLMRouter
 from db.models import MonitorSite, MonitorSnapshot, MonitorChange, AuditLog, ApprovalRequest
 from config.settings import load_llm_router_config
+from src.modules import parse_instruction, scrape_url
 
 
 class MonitoringOrchestrator:
     def __init__(self, db: Session):
         self.db = db
         self.llm_router = LLMRouter(load_llm_router_config())
-        self.scout = ScoutAgent(llm_router=self.llm_router, db=db)
+        self.scout = ScoutAgent(
+            llm_router=self.llm_router,
+            db=db,
+            parse_instruction=parse_instruction,
+            scrape_url=scrape_url,
+        )
         self.analyst = AnalystAgent(llm_router=self.llm_router)
         self.reporter = ReporterAgent(llm_router=self.llm_router)
         self.action_registry = ActionHandlerRegistry()
