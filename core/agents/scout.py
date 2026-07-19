@@ -8,7 +8,7 @@ from core.entities.extractor import extract_entities
 from core.entities.models import Entity
 from core.llm.router import LLMRouter
 from db.models import MonitorSite, MonitorSnapshot
-from src.modules import parse_instruction as _parse_instruction, scrape_url as _scrape_url
+from src.modules import parse_instruction, scrape_url
 
 
 class ScoutAgent:
@@ -16,8 +16,8 @@ class ScoutAgent:
         self,
         llm_router: Optional[LLMRouter] = None,
         db: Optional[Session] = None,
-        parse_instruction=_parse_instruction,
-        scrape_url=_scrape_url,
+        parse_instruction=parse_instruction,
+        scrape_url=scrape_url,
     ):
         self.llm_router = llm_router
         self.db = db
