@@ -1,5 +1,6 @@
 from typing import Any
 from core.actions.registry import ActionHandlerRegistry
+from mcp.tools import handler_to_tool
 
 
 class MCPServer:
