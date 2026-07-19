@@ -8,6 +8,7 @@ class Entity(BaseModel):
     entity_id: str
     name: str
     value: str
+    old_value: Optional[str] = None
     unit: Optional[str] = None
     context: Optional[str] = None
 

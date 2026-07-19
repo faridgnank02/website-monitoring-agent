@@ -48,10 +48,17 @@ class AnalystAgent:
         )
 
     def _classify_change(self, entities: list, comparison) -> str:
+        def _entity_attr(entity, key, default=""):
+            if hasattr(entity, key):
+                return getattr(entity, key) or default
+            if isinstance(entity, dict):
+                return entity.get(key, default)
+            return default
+
         for entity in entities:
-            name = entity.get("name", "").lower()
-            old = str(entity.get("old_value", ""))
-            new = str(entity.get("value", ""))
+            name = str(_entity_attr(entity, "name")).lower()
+            old = str(_entity_attr(entity, "old_value"))
+            new = str(_entity_attr(entity, "value"))
             if "price" in name:
                 try:
                     old_val = float(old.replace("$", "").replace(",", ""))
