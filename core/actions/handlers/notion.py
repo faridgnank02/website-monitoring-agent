@@ -32,8 +32,6 @@ class NotionActionHandler(ActionHandler):
                     "site_id": getattr(context.site, "id", None),
                     "database_id": database_id,
                     "title": context.report.title,
-                    "summary": context.report.summary,
-                    "url": getattr(context.site, "url", None) or "",
                 },
                 description="Create Notion page",
             )
@@ -49,7 +47,7 @@ class NotionActionHandler(ActionHandler):
                 "Content-Type": "application/json",
             }
             body = {
-                "parent": {"database_id": payload["database_id"]},
+                "parent": {"database_id": payload.get("database_id", "")},
                 "properties": {
                     "title": {
                         "title": [
