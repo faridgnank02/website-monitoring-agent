@@ -10,6 +10,14 @@ class FakeSite:
     actions_enabled = ["email"]
     url = "https://example.com"
     instruction = "monitor prices"
+    threshold = 1.0
+
+
+class FakeChange:
+    change_score = 14.29
+    added_lines = 2
+    removed_lines = 1
+    modified_lines = 3
 
 
 def _context():
@@ -46,13 +54,37 @@ def test_email_execute_sends_via_gmail(mock_notifier):
     result = handler.execute(
         ProposedAction(
             type="email", risk_score=0.1,
-            payload={"subject": "Price changed", "body": "Price dropped", "url": "https://example.com"},
+            payload={
+                "subject": "Price changed", "body": "Price dropped",
+                "url": "https://example.com", "instruction": "monitor prices",
+                "threshold": 1.0, "change_score": 14.29,
+                "added_lines": 2, "removed_lines": 1, "modified_lines": 3,
+            },
             description="Send email alert",
         )
     )
     assert result.success is True
     assert result.type == "email"
     mock_notifier.return_value.send_notification.assert_called_once()
+    notification = mock_notifier.return_value.send_notification.call_args[0][0]
+    assert notification.change_score == 14.29
+    assert notification.instruction == "monitor prices"
+    assert notification.added_lines == 2
+    assert notification.removed_lines == 1
+    assert notification.modified_lines == 3
+
+
+def test_email_propose_includes_change_statistics():
+    handler = EmailActionHandler()
+    report = ReportEvent(run_id="r1", site_id=1, title="Price changed", summary="Price dropped")
+    context = ActionContext(site=FakeSite(), report=report, change=FakeChange())
+    proposals = handler.propose(context)
+    assert len(proposals) == 1
+    assert proposals[0].payload["change_score"] == 14.29
+    assert proposals[0].payload["added_lines"] == 2
+    assert proposals[0].payload["removed_lines"] == 1
+    assert proposals[0].payload["modified_lines"] == 3
+    assert proposals[0].payload["instruction"] == "monitor prices"
 
 
 @patch("core.actions.handlers.email.GmailNotifier")

@@ -19,18 +19,35 @@ class EmailActionHandler(ActionHandler):
                     "subject": context.report.title,
                     "body": context.report.summary,
                     "url": getattr(context.site, "url", None) or "",
-                    "site_id": getattr(context.site, "id", None),
+                    "instruction": getattr(context.site, "instruction", None) or "",
+                    "threshold": float(getattr(context.site, "threshold", 1.0) or 1.0),
+                    "change_score": self._change_score(context),
+                    "added_lines": self._int_field(context, "added_lines"),
+                    "removed_lines": self._int_field(context, "removed_lines"),
+                    "modified_lines": self._int_field(context, "modified_lines"),
                 },
                 description="Send email alert",
             )
         ]
+
+    @staticmethod
+    def _change_score(context: ActionContext) -> float:
+        if context.change is None:
+            return 0.0
+        return float(getattr(context.change, "change_score", 0.0) or 0.0)
+
+    @staticmethod
+    def _int_field(context: ActionContext, name: str) -> int:
+        if context.change is None:
+            return 0
+        return int(getattr(context.change, name, 0) or 0)
 
     def execute(self, proposed: ProposedAction) -> ActionResult:
         payload = proposed.payload
         try:
             notification = ChangeNotification(
                 url=payload.get("url", ""),
-                instruction=payload.get("subject") or "Monitor Agent alert",
+                instruction=payload.get("instruction") or payload.get("subject") or "Monitor Agent alert",
                 change_score=float(payload.get("change_score", 0.0)),
                 threshold=float(payload.get("threshold", 1.0)),
                 added_lines=int(payload.get("added_lines", 0)),
