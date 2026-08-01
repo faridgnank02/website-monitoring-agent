@@ -36,10 +36,16 @@ class GitHubActionHandler(ActionHandler):
         ]
 
     def execute(self, proposed: ProposedAction) -> ActionResult:
-        payload = proposed.payload
         try:
-            token = resolve_token(payload.get("site_id"), payload.get("token", ""))
+            payload = proposed.payload
             repo = payload.get("repo", "")
+            if not repo:
+                return ActionResult(
+                    success=False,
+                    type=self.name,
+                    message="GitHub repo not configured",
+                )
+            token = resolve_token(payload.get("site_id"), payload.get("token", ""))
             url = f"https://api.github.com/repos/{repo}/issues"
             headers = {
                 "Authorization": f"Bearer {token}",

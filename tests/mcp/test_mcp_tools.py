@@ -23,20 +23,18 @@ def test_email_handler_has_output_schema():
     assert "output" in schema["properties"]
 
 
-def test_notion_handler_is_placeholder():
+def test_notion_handler_execute_handles_missing_proposal():
     handler = NotionActionHandler()
     assert handler.name == "notion"
     result = handler.execute(None)
     assert result.success is False
-    assert result.message == "Not implemented"
 
 
-def test_github_handler_is_placeholder():
+def test_github_handler_execute_handles_missing_proposal():
     handler = GitHubActionHandler()
     assert handler.name == "github"
     result = handler.execute(None)
     assert result.success is False
-    assert result.message == "Not implemented"
 
 
 def test_n8n_handler_is_placeholder():

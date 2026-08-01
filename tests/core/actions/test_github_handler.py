@@ -100,12 +100,25 @@ def test_github_execute_returns_failure_on_http_error():
     result = handler.execute(
         ProposedAction(
             type="github", risk_score=0.5,
-            payload={"token": "t", "repo": "acme/monitor", "title": "t", "body": "b"},
+            payload={"token": "ghp_LEAKCHECK", "repo": "acme/monitor", "title": "t", "body": "b"},
             description="Create GitHub issue",
         )
     )
     assert result.success is False
-    assert "ghp" not in result.message
+    assert "ghp_LEAKCHECK" not in result.message
+
+
+def test_github_execute_fails_without_repo():
+    handler = GitHubActionHandler()
+    result = handler.execute(
+        ProposedAction(
+            type="github", risk_score=0.5,
+            payload={"token": "t", "title": "t", "body": "b"},
+            description="Create GitHub issue",
+        )
+    )
+    assert result.success is False
+    assert "repo" in result.message
 
 
 @responses.activate

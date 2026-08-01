@@ -38,8 +38,8 @@ class NotionActionHandler(ActionHandler):
         ]
 
     def execute(self, proposed: ProposedAction) -> ActionResult:
-        payload = proposed.payload
         try:
+            payload = proposed.payload
             token = resolve_token(payload.get("site_id"), payload.get("token", ""))
             headers = {
                 "Authorization": f"Bearer {token}",
