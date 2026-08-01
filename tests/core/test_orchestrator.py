@@ -109,6 +109,26 @@ def test_orchestrator_scrape_failure_returns_error():
     assert "Connection failed" in result["error"]
 
 
+def test_orchestrator_notifies_on_approval_requests():
+    db = MagicMock(spec=Session)
+    site = MonitorSite(
+        id=1, user_id=1, instruction="test", threshold=1.0, approval_policy="always"
+    )
+    orch = MonitoringOrchestrator(db)
+    with patch.object(orch.approval_notifier, "notify_pending") as mock_notify:
+        orch._save_approval_requests(
+            "r1",
+            site,
+            MagicMock(id=1),
+            MagicMock(
+                approval_requests=[
+                    {"type": "slack", "risk_score": 0.4, "payload": {}, "description": "x"}
+                ]
+            ),
+        )
+    mock_notify.assert_called_once()
+
+
 def test_orchestrator_parse_instruction_failure_returns_error():
     db = MagicMock(spec=Session)
     db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None

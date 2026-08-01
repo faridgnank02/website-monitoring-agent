@@ -10,6 +10,7 @@ from core.agents.analyst import AnalystAgent
 from core.agents.reporter import ReporterAgent
 from core.agents.action import ActionAgent
 from core.actions.registry import build_default_registry
+from core.approvals.notifier import ApprovalNotifier
 from core.llm.router import LLMRouter
 from db.models import MonitorSite, MonitorSnapshot, MonitorChange, AuditLog, ApprovalRequest
 from config.settings import load_llm_router_config
@@ -30,6 +31,7 @@ class MonitoringOrchestrator:
         self.reporter = ReporterAgent(llm_router=self.llm_router)
         self.action_registry = build_default_registry()
         self.action_agent = ActionAgent(self.action_registry)
+        self.approval_notifier = ApprovalNotifier()
 
     def run(self, site: MonitorSite) -> dict:
         run_id = str(uuid.uuid4())
@@ -190,3 +192,7 @@ class MonitoringOrchestrator:
             )
             self.db.add(ar)
         self.db.commit()
+        try:
+            self.approval_notifier.notify_pending(site, event.approval_requests)
+        except Exception:
+            pass
