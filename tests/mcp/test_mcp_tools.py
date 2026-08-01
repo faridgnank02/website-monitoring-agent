@@ -37,12 +37,11 @@ def test_github_handler_execute_handles_missing_proposal():
     assert result.success is False
 
 
-def test_n8n_handler_is_placeholder():
+def test_n8n_handler_execute_handles_missing_proposal():
     handler = N8NActionHandler()
     assert handler.name == "n8n"
     result = handler.execute(None)
     assert result.success is False
-    assert result.message == "Not implemented"
 
 
 def test_webhook_handler_is_placeholder():
