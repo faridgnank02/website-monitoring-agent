@@ -12,6 +12,10 @@ from core.agents.action import ActionAgent
 from core.actions.registry import ActionHandlerRegistry
 from core.actions.handlers.email import EmailActionHandler
 from core.actions.handlers.slack import SlackActionHandler
+from core.actions.handlers.notion import NotionActionHandler
+from core.actions.handlers.github import GitHubActionHandler
+from core.actions.handlers.n8n import N8NActionHandler
+from core.actions.handlers.webhook import WebhookActionHandler
 from core.llm.router import LLMRouter
 from db.models import MonitorSite, MonitorSnapshot, MonitorChange, AuditLog, ApprovalRequest
 from config.settings import load_llm_router_config
@@ -33,6 +37,10 @@ class MonitoringOrchestrator:
         self.action_registry = ActionHandlerRegistry()
         self.action_registry.register(EmailActionHandler())
         self.action_registry.register(SlackActionHandler())
+        self.action_registry.register(NotionActionHandler())
+        self.action_registry.register(GitHubActionHandler())
+        self.action_registry.register(N8NActionHandler())
+        self.action_registry.register(WebhookActionHandler())
         self.action_agent = ActionAgent(self.action_registry)
 
     def run(self, site: MonitorSite) -> dict:
