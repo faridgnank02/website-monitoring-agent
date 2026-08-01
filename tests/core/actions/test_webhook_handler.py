@@ -1,12 +1,15 @@
 import hashlib
 import hmac
 import json
+from unittest.mock import patch
 
+import requests
 import responses
 
 from core.actions.base import ActionContext, ProposedAction
 from core.actions.handlers.webhook import WebhookActionHandler
 from core.agents.events import ReportEvent
+from core.security.site_encryption import encrypt_site_token
 
 
 class FakeSite:
@@ -65,6 +68,7 @@ def test_webhook_execute_posts_payload():
     body = json.loads(responses.calls[0].request.body)
     assert body["event"] == "monitor_change"
     assert body["site_id"] == 1
+    assert "X-Signature" not in responses.calls[0].request.headers
     assert len(responses.calls) == 1
 
 
@@ -109,12 +113,9 @@ def test_webhook_execute_returns_failure_on_http_error():
 
 @responses.activate
 def test_webhook_execute_network_error_does_not_leak_secret():
-    from unittest.mock import patch
-    import requests as _requests
-
     with patch(
         "core.actions.handlers.webhook.requests.post",
-        side_effect=_requests.ConnectionError("boom https://example.com/hooks/monitor SECRET_XYZ"),
+        side_effect=requests.ConnectionError("boom https://example.com/hooks/monitor SECRET_XYZ"),
     ):
         handler = WebhookActionHandler()
         result = handler.execute(
@@ -127,3 +128,39 @@ def test_webhook_execute_network_error_does_not_leak_secret():
     assert result.success is False
     assert len(responses.calls) == 0
     assert "SECRET_XYZ" not in result.message
+
+
+def test_webhook_execute_fails_without_url():
+    handler = WebhookActionHandler()
+    result = handler.execute(
+        ProposedAction(
+            type="webhook", risk_score=0.2,
+            payload={"site_id": 1},
+            description="POST to webhook",
+        )
+    )
+    assert result.success is False
+    assert "url" in result.message
+
+
+@responses.activate
+@patch("config.settings.SECRET_KEY", "test-master-secret-key")
+def test_webhook_execute_resolves_encrypted_secret():
+    plaintext = "plain-secret"
+    encrypted = encrypt_site_token(1, plaintext)
+    responses.add(responses.POST, "https://example.com/hooks/monitor", status=200)
+    handler = WebhookActionHandler()
+    result = handler.execute(
+        ProposedAction(
+            type="webhook", risk_score=0.2,
+            payload={"url": "https://example.com/hooks/monitor", "secret": encrypted, "site_id": 1},
+            description="POST to webhook",
+        )
+    )
+    assert result.success is True
+    request = responses.calls[0].request
+    raw_body = request.body
+    if isinstance(raw_body, bytes):
+        raw_body = raw_body.decode("utf-8")
+    expected = hmac.new(plaintext.encode(), raw_body.encode(), hashlib.sha256).hexdigest()
+    assert request.headers["X-Signature"] == f"sha256={expected}"

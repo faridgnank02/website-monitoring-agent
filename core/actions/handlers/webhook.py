@@ -5,6 +5,7 @@ import json
 import requests
 
 from core.actions.base import ActionHandler, ActionContext, ProposedAction, ActionResult
+from core.security.site_encryption import resolve_token
 
 
 class WebhookActionHandler(ActionHandler):
@@ -54,7 +55,7 @@ class WebhookActionHandler(ActionHandler):
             }
             data = json.dumps(body, default=str)
             headers = {"Content-Type": "application/json"}
-            secret = payload.get("secret") or ""
+            secret = resolve_token(payload.get("site_id"), payload.get("secret", ""))
             if secret:
                 signature = hmac.new(
                     secret.encode("utf-8"), data.encode("utf-8"), hashlib.sha256
