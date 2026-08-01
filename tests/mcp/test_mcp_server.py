@@ -68,11 +68,11 @@ def test_call_tool_slack_returns_action_result():
     with patch("core.actions.handlers.slack.requests.post") as mock_post:
         mock_post.return_value.status_code = 200
         mock_post.return_value.json.return_value = {"ok": True}
-        result = server.call_tool("slack", {"payload": {"webhook": "http://slack", "message": "test"}})
+        result = server.call_tool("slack", {"payload": {"webhook": "http://slack", "text": "test"}})
 
     assert "content" in result
     content = result["content"][0]["text"]
-    assert "success" in content
+    assert "posted" in content
 
 
 def test_call_tool_unknown_handler_raises():

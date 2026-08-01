@@ -99,4 +99,4 @@ def test_email_execute_returns_failure_on_exception(mock_notifier):
         )
     )
     assert result.success is False
-    assert "SMTP down" in result.message
+    assert result.message == "Email send failed"

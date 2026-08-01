@@ -1,8 +1,12 @@
 import responses
+from unittest.mock import patch
+
+import requests
 
 from core.actions.base import ActionContext, ProposedAction
 from core.actions.handlers.slack import SlackActionHandler
 from core.agents.events import ReportEvent
+from core.security.site_encryption import encrypt_site_token
 
 
 class FakeSite:
@@ -124,3 +128,78 @@ def test_slack_execute_returns_failure_on_http_error():
         )
     )
     assert result.success is False
+
+
+@responses.activate
+@patch("config.settings.SECRET_KEY", "test-master-secret-key")
+def test_slack_execute_resolves_encrypted_webhook():
+    webhook_url = "https://hooks.slack.com/services/T000/B000/SECRET"
+    encrypted = encrypt_site_token(1, webhook_url)
+    responses.add(
+        responses.POST,
+        webhook_url,
+        status=200,
+        json={"ok": True},
+    )
+    handler = SlackActionHandler()
+    result = handler.execute(
+        ProposedAction(
+            type="slack", risk_score=0.4,
+            payload={
+                "webhook": encrypted,
+                "text": "Price dropped",
+                "site_id": 1,
+            },
+            description="Post to Slack",
+        )
+    )
+    assert result.success is True
+    assert responses.calls[0].request.url == webhook_url
+
+
+def test_slack_execute_network_error_does_not_leak_webhook():
+    handler = SlackActionHandler()
+    proposed = ProposedAction(
+        type="slack", risk_score=0.4,
+        payload={
+            "webhook": "https://hooks.slack.com/services/T000/B000/SECRET",
+            "text": "Price dropped",
+        },
+        description="Post to Slack",
+    )
+    with patch(
+        "core.actions.handlers.slack.requests.post",
+        side_effect=requests.ConnectionError(
+            "boom https://hooks.slack.com/services/T000/B000/SECRET"
+        ),
+    ):
+        result = handler.execute(proposed)
+    assert result.success is False
+    assert "hooks.slack.com" not in result.message
+
+
+@responses.activate
+def test_slack_execute_omits_score_when_change_score_zero():
+    responses.add(
+        responses.POST,
+        "https://hooks.slack.com/services/T000/B000/XXX",
+        status=200,
+        json={"ok": True},
+    )
+    handler = SlackActionHandler()
+    result = handler.execute(
+        ProposedAction(
+            type="slack", risk_score=0.4,
+            payload={
+                "webhook": "https://hooks.slack.com/services/T000/B000/XXX",
+                "text": "Price dropped",
+                "change_score": 0.0,
+                "severity": "low",
+            },
+            description="Post to Slack",
+        )
+    )
+    assert result.success is True
+    body = responses.calls[0].request.body
+    assert b"Price dropped" in body
+    assert b"Change score:" not in body

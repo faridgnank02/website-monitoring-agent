@@ -63,5 +63,5 @@ class EmailActionHandler(ActionHandler):
                 type=self.name,
                 message="Email sent" if ok else "Email failed",
             )
-        except Exception as exc:
-            return ActionResult(success=False, type=self.name, message=str(exc))
+        except Exception:
+            return ActionResult(success=False, type=self.name, message="Email send failed")

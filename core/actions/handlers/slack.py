@@ -47,7 +47,7 @@ class SlackActionHandler(ActionHandler):
         try:
             webhook = resolve_token(payload.get("site_id"), payload.get("webhook", ""))
             text = payload.get("text", "")
-            change_score = payload.get("change_score", 0.0)
+            change_score = float(payload.get("change_score", 0.0) or 0.0)
             severity = payload.get("severity", "low")
             url = payload.get("url", "")
             message = text
@@ -70,7 +70,6 @@ class SlackActionHandler(ActionHandler):
                 success=True,
                 type=self.name,
                 message="Slack message posted",
-                output={"external_id": None},
             )
-        except Exception as exc:
-            return ActionResult(success=False, type=self.name, message=str(exc))
+        except Exception:
+            return ActionResult(success=False, type=self.name, message="Slack post failed")
