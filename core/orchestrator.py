@@ -9,7 +9,7 @@ from core.agents.scout import ScoutAgent
 from core.agents.analyst import AnalystAgent
 from core.agents.reporter import ReporterAgent
 from core.agents.action import ActionAgent
-from core.actions.registry import ActionHandlerRegistry, build_default_registry
+from core.actions.registry import build_default_registry
 from core.llm.router import LLMRouter
 from db.models import MonitorSite, MonitorSnapshot, MonitorChange, AuditLog, ApprovalRequest
 from config.settings import load_llm_router_config
