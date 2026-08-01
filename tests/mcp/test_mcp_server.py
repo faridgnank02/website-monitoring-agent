@@ -1,4 +1,5 @@
 import os
+from unittest.mock import patch
 
 # Set MCP_API_KEY BEFORE importing anything from mcp (it's read at import time)
 os.environ["MCP_API_KEY"] = "test-secret-key"
@@ -62,10 +63,13 @@ def test_call_tool_email_returns_action_result():
 def test_call_tool_slack_returns_action_result():
     registry = ActionHandlerRegistry()
     registry.register(SlackActionHandler())
-    
+
     server = MCPServer(registry)
-    result = server.call_tool("slack", {"payload": {"webhook": "http://slack", "message": "test"}})
-    
+    with patch("core.actions.handlers.slack.requests.post") as mock_post:
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {"ok": True}
+        result = server.call_tool("slack", {"payload": {"webhook": "http://slack", "message": "test"}})
+
     assert "content" in result
     content = result["content"][0]["text"]
     assert "success" in content
