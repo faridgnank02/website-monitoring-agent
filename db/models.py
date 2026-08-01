@@ -58,6 +58,8 @@ class MonitorSite(Base):
     notion_token: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
     github_token: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
     n8n_webhook_url: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
+    actions_enabled: Mapped[Optional[list]] = mapped_column(JSON, default=list)
+    integration_config: Mapped[Optional[dict]] = mapped_column(JSON, default=dict)
 
     user: Mapped["User"] = relationship("User", back_populates="sites")
     snapshots: Mapped[list["MonitorSnapshot"]] = relationship(

@@ -102,3 +102,17 @@ def test_site_has_monitor_mode(db):
 
     assert site.monitor_mode == "competitive"
     assert site.user_id == user.id
+
+
+def test_site_actions_config_defaults(db):
+    user = User(email=f"actions-{uuid.uuid4()}@example.com", hashed_password="x")
+    db.add(user)
+    db.commit()
+
+    site = MonitorSite(user_id=user.id, instruction="test")
+    db.add(site)
+    db.commit()
+    db.refresh(site)
+
+    assert site.actions_enabled == []
+    assert site.integration_config == {}
