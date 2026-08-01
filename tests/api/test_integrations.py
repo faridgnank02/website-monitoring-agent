@@ -135,3 +135,93 @@ def test_get_integrations_requires_auth(authed_client):
     client, token, user_id, SessionLocal = authed_client
     resp = client.get("/api/integrations/sites/1")
     assert resp.status_code == 401
+
+
+def test_put_invalid_ciphertext_does_not_brick_site(authed_client):
+    client, token, user_id, SessionLocal = authed_client
+    db = SessionLocal()
+    from db.models import MonitorSite
+    site = MonitorSite(user_id=user_id, instruction="test")
+    db.add(site)
+    db.commit()
+    db.refresh(site)
+    site_id = site.id
+    db.close()
+
+    resp = client.put(
+        f"/api/integrations/sites/{site_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"slack_webhook": "gAAAAgarbage-not-valid-ciphertext"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["slack_webhook_masked"] != ""
+
+    # subsequent GET must still work (no 500)
+    resp2 = client.get(
+        f"/api/integrations/sites/{site_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp2.status_code == 200
+
+
+def test_put_idempotent_ciphertext(authed_client):
+    client, token, user_id, SessionLocal = authed_client
+    db = SessionLocal()
+    from db.models import MonitorSite
+    site = MonitorSite(user_id=user_id, instruction="test")
+    db.add(site)
+    db.commit()
+    db.refresh(site)
+    site_id = site.id
+    db.close()
+
+    from core.security.site_encryption import encrypt_site_token
+    token_value = encrypt_site_token(site_id, "https://hooks.slack.com/services/T/B/X")
+    resp = client.put(
+        f"/api/integrations/sites/{site_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"slack_webhook": token_value},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["slack_webhook_masked"] == "****/B/X"
+
+    # re-PUT the same ciphertext: unchanged, still works
+    resp2 = client.put(
+        f"/api/integrations/sites/{site_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"slack_webhook": token_value},
+    )
+    assert resp2.status_code == 200
+    assert resp2.json()["slack_webhook_masked"] == "****/B/X"
+
+
+def test_put_clears_token_with_empty_string(authed_client):
+    client, token, user_id, SessionLocal = authed_client
+    db = SessionLocal()
+    from db.models import MonitorSite
+    site = MonitorSite(user_id=user_id, instruction="test")
+    db.add(site)
+    db.commit()
+    db.refresh(site)
+    site_id = site.id
+    db.close()
+
+    resp = client.put(
+        f"/api/integrations/sites/{site_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"slack_webhook": "https://hooks.slack.com/services/T/B/X"},
+    )
+    assert resp.json()["slack_webhook_masked"] == "****/B/X"
+
+    resp2 = client.put(
+        f"/api/integrations/sites/{site_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"slack_webhook": ""},
+    )
+    assert resp2.status_code == 200
+    assert resp2.json()["slack_webhook_masked"] == ""
+
+    db = SessionLocal()
+    stored = db.query(MonitorSite).filter(MonitorSite.id == site_id).first()
+    assert stored.slack_webhook == ""
+    db.close()

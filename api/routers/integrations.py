@@ -8,7 +8,7 @@ credentials. Tokens are encrypted at rest; responses only return masked values.
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from api.deps import get_db, get_current_user
@@ -33,8 +33,8 @@ class IntegrationsUpdate(BaseModel):
 
 class IntegrationsOut(BaseModel):
     site_id: int
-    actions_enabled: List[str] = []
-    integration_config: dict = {}
+    actions_enabled: List[str] = Field(default_factory=list)
+    integration_config: dict = Field(default_factory=dict)
     slack_webhook_masked: str = ""
     notion_token_masked: str = ""
     github_token_masked: str = ""
@@ -63,7 +63,10 @@ def _masked(site: MonitorSite) -> IntegrationsOut:
     masked_fields = {}
     for field in _TOKEN_FIELDS:
         value = getattr(site, field) or ""
-        masked_fields[f"{field}_masked"] = mask_token(resolve_token(site.id, value))
+        try:
+            masked_fields[f"{field}_masked"] = mask_token(resolve_token(site.id, value))
+        except ValueError:
+            masked_fields[f"{field}_masked"] = ""
     return IntegrationsOut(
         site_id=site.id,
         actions_enabled=site.actions_enabled or [],
@@ -93,14 +96,20 @@ def update_site_integrations(
     data = body.model_dump(exclude_none=True)
 
     for field in _TOKEN_FIELDS:
-        if field in data:
-            value = data[field] or ""
-            if value:
-                if value.startswith("gAAAA"):
-                    # already-encrypted ciphertext: store as-is (idempotent PUT)
-                    setattr(site, field, value)
-                else:
-                    setattr(site, field, encrypt_site_token(site.id, value))
+        if field not in data:
+            continue
+        value = data[field]
+        if value is None or value == "":
+            setattr(site, field, "")
+            continue
+        if value.startswith("gAAAA"):
+            try:
+                resolve_token(site.id, value)
+            except ValueError:
+                value = encrypt_site_token(site.id, value)
+            setattr(site, field, value)
+        else:
+            setattr(site, field, encrypt_site_token(site.id, value))
 
     if "actions_enabled" in data:
         site.actions_enabled = data["actions_enabled"]
