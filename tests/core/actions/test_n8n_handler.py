@@ -80,6 +80,8 @@ def test_n8n_execute_posts_full_payload():
     body = json.loads(responses.calls[0].request.body)
     assert body["event"] == "monitor_change"
     assert body["site_id"] == 1
+    assert body["title"] == "Price changed"
+    assert body["summary"] == "Price dropped"
     assert body["change_score"] == 2.5
     assert body["severity"] == "high"
     assert len(responses.calls) == 1
@@ -118,3 +120,27 @@ def test_n8n_execute_network_error_does_not_leak_url():
     assert result.success is False
     assert len(responses.calls) == 0
     assert "http://localhost:5678" not in result.message
+
+
+@responses.activate
+def test_n8n_execute_fails_without_url():
+    handler = N8NActionHandler()
+    result = handler.execute(
+        ProposedAction(
+            type="n8n", risk_score=0.3,
+            payload={"site_id": 1},
+            description="Send change payload to n8n",
+        )
+    )
+    assert result.success is False
+    assert "url" in result.message
+
+
+def test_n8n_propose_defaults_when_no_change(monkeypatch):
+    import config.settings as settings
+    monkeypatch.setattr(settings, "N8N_WEBHOOK_URL", "http://localhost:5678/webhook/monitor")
+
+    handler = N8NActionHandler()
+    proposals = handler.propose(_context())
+    assert proposals[0].payload["change_score"] == 0.0
+    assert proposals[0].payload["severity"] == "low"

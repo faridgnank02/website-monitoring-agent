@@ -53,7 +53,7 @@ class N8NActionHandler(ActionHandler):
                 "site_id": payload.get("site_id"),
                 "title": payload.get("title"),
                 "summary": payload.get("summary"),
-                "change_score": payload.get("change_score", 0.0),
+                "change_score": float(payload.get("change_score", 0.0) or 0.0),
                 "severity": payload.get("severity", "low"),
             }
             url = payload.get("url", "")
