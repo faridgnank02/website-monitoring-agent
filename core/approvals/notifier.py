@@ -43,7 +43,9 @@ class ApprovalNotifier:
                 timestamp=datetime.now().strftime("%d/%m/%Y à %H:%M:%S"),
                 elements_watched=[],
             )
-            GmailNotifier().send_notification(notification)
+            ok = GmailNotifier().send_notification(notification)
+            if not ok:
+                logger.warning("approval email notification failed")
         except Exception:
             logger.exception("approval email notification failed")
 

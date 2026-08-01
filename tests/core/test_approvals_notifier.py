@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import patch
 
 from core.approvals.notifier import ApprovalNotifier
@@ -31,3 +32,14 @@ def test_never_raises_when_email_fails():
         with patch("core.approvals.notifier.settings.GMAIL_RECIPIENT_EMAIL", "admin@example.com"):
             notifier.notify_pending(site, [{"action_type": "slack", "risk_score": 0.9}])
     assert True
+
+
+def test_email_failure_returns_false_logs_warning(caplog):
+    site = MonitorSite(id=1, user_id=1, instruction="test")
+    notifier = ApprovalNotifier()
+    with patch("core.approvals.notifier.GmailNotifier", autospec=True) as MockNotifier:
+        MockNotifier.return_value.send_notification.return_value = False
+        with patch("core.approvals.notifier.settings.GMAIL_RECIPIENT_EMAIL", "admin@example.com"):
+            with caplog.at_level(logging.WARNING, logger="core.approvals.notifier"):
+                notifier.notify_pending(site, [{"action_type": "slack", "risk_score": 0.9}])
+    assert any("approval email notification failed" in r.message for r in caplog.records)
