@@ -18,6 +18,7 @@ from core.actions.handlers.webhook import WebhookActionHandler
 from fastapi.testclient import TestClient
 from db.base import SessionLocal, init_db
 from db.models import User, MonitorSite
+import pytest
 
 
 def get_test_db():
@@ -133,6 +134,34 @@ def test_call_tool_unknown_handler_raises():
             assert False, "Should have raised"
         except ValueError as e:
             assert "Handler not found" in str(e)
+    finally:
+        db.close()
+
+
+@pytest.mark.parametrize(
+    "handler_class,payload",
+    [
+        (NotionActionHandler, {"payload": {"database_id": "db", "title": "t", "content": "c"}}),
+        (GitHubActionHandler, {"payload": {"repo": "owner/repo", "title": "t", "body": "b"}}),
+        (N8NActionHandler, {"payload": {"data": {}}}),
+        (WebhookActionHandler, {"payload": {"url": "https://example.com/hook"}}),
+    ],
+)
+def test_call_tool_falls_back_for_stub_handlers(handler_class, payload):
+    """Handlers whose propose() returns [] (unconfigured/stub) must still be invocable."""
+    db_gen = get_test_db()
+    db, site_id = next(db_gen)
+    try:
+        registry = ActionHandlerRegistry()
+        registry.register(handler_class())
+
+        server = MCPServer(registry, db)
+        result = server.call_tool(handler_class.name, payload, site_id)
+
+        assert "content" in result
+        content = result["content"][0]["text"]
+        assert "success" in content
+        assert "type" in content
     finally:
         db.close()
 
