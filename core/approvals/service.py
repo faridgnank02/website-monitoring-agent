@@ -30,7 +30,7 @@ class ApprovalService:
         cutoff = datetime.utcnow() - timedelta(hours=APPROVAL_TTL_HOURS)
         stale = (
             self.db.query(ApprovalRequest)
-            .filter(ApprovalRequest.status == "pending")
+            .filter(ApprovalRequest.status.in_(["pending", "resolving"]))
             .filter(ApprovalRequest.created_at < cutoff)
             .all()
         )
@@ -39,6 +39,15 @@ class ApprovalService:
             req.resolved_at = datetime.utcnow()
         if stale:
             self.db.commit()
+
+    def _claim(self, request_id: int) -> bool:
+        claimed = (
+            self.db.query(ApprovalRequest)
+            .filter(ApprovalRequest.id == request_id)
+            .filter(ApprovalRequest.status == "pending")
+            .update({ApprovalRequest.status: "resolving"}, synchronize_session=False)
+        )
+        return claimed == 1
 
     def list(self, actor: User, status: Optional[str] = None):
         self._expire_stale()
@@ -60,25 +69,29 @@ class ApprovalService:
 
     def approve(self, req: ApprovalRequest, actor: User) -> ActionResult:
         self._expire_stale()
-        if req.status != "pending":
-            raise ApprovalConflict("request already resolved or expired")
         self._ensure_can_act(req, actor)
-        handler = self.registry.get(req.action_type)
+        action_type = req.action_type
+        risk_score = req.risk_score or 0.0
+        payload = req.payload or {}
+        if not self._claim(req.id):
+            raise ApprovalConflict("request already resolved or expired")
+        self.db.commit()
+        handler = self.registry.get(action_type)
         if handler is None:
             result = ActionResult(
                 success=False,
-                type=req.action_type,
+                type=action_type,
                 message="handler not registered",
             )
         else:
             proposed = ProposedAction(
-                type=req.action_type,
-                risk_score=req.risk_score or 0.0,
-                payload=req.payload or {},
+                type=action_type,
+                risk_score=risk_score,
+                payload=payload,
                 description="",
             )
             result = handler.execute(proposed)
-        req.status = "approved"
+        req.status = "approved" if result.success else "failed"
         req.resolved_at = datetime.utcnow()
         req.resolved_by = actor.id
         if result.success:
@@ -90,9 +103,9 @@ class ApprovalService:
 
     def reject(self, req: ApprovalRequest, actor: User) -> None:
         self._expire_stale()
-        if req.status != "pending":
-            raise ApprovalConflict("request already resolved or expired")
         self._ensure_can_act(req, actor)
+        if not self._claim(req.id):
+            raise ApprovalConflict("request already resolved or expired")
         req.status = "rejected"
         req.resolved_at = datetime.utcnow()
         req.resolved_by = actor.id

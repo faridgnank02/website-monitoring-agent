@@ -23,6 +23,8 @@ def _masked(req: ApprovalRequest) -> dict:
         "created_at": req.created_at.isoformat() if req.created_at else None,
         "resolved_at": req.resolved_at.isoformat() if req.resolved_at else None,
         "resolved_by": req.resolved_by,
+        "error_message": req.error_message,
+        "output": req.output,
     }
 
 

@@ -219,6 +219,40 @@ def test_admin_can_approve_other_users(client, seeded):
     assert resp.status_code == 200
 
 
+def test_failed_approval_surfaces_error_message(client, db_engine, seeded):
+    engine, SessionLocal = db_engine
+    db = SessionLocal()
+    owner = db.query(User).filter(User.email == "owner@example.com").one()
+    site = db.query(MonitorSite).filter(MonitorSite.user_id == owner.id).one()
+    ghost = ApprovalRequest(
+        run_id="r-ghost", site_id=site.id, action_type="ghost",
+        risk_score=0.9, payload={"secret": "yes"}, status="pending",
+        user_id=owner.id,
+    )
+    db.add(ghost)
+    db.commit()
+    db.refresh(ghost)
+    db.close()
+
+    resp = client.post(
+        f"/api/approvals/{ghost.id}/approve",
+        headers={"Authorization": f"Bearer {seeded['owner_token']}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["success"] is False
+
+    listing = client.get(
+        "/api/approvals",
+        headers={"Authorization": f"Bearer {seeded['owner_token']}"},
+    )
+    data = listing.json()
+    failed = next(r for r in data if r["id"] == ghost.id)
+    assert failed["status"] == "failed"
+    assert failed["error_message"] == "handler not registered"
+    assert "payload" not in failed
+    assert "secret" not in failed
+
+
 def test_stale_pending_request_auto_expires(client, db_engine, seeded):
     from datetime import datetime, timedelta
     engine, SessionLocal = db_engine
