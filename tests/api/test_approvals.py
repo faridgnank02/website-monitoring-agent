@@ -217,3 +217,26 @@ def test_admin_can_approve_other_users(client, seeded):
             headers={"Authorization": f"Bearer {seeded['admin_token']}"},
         )
     assert resp.status_code == 200
+
+
+def test_stale_pending_request_auto_expires(client, db_engine, seeded):
+    from datetime import datetime, timedelta
+    engine, SessionLocal = db_engine
+    db = SessionLocal()
+    ar = db.query(ApprovalRequest).filter(ApprovalRequest.id == seeded["request"].id).first()
+    ar.created_at = datetime.utcnow() - timedelta(hours=48)
+    db.commit()
+    db.close()
+
+    resp = client.get(
+        "/api/approvals",
+        headers={"Authorization": f"Bearer {seeded['owner_token']}"},
+    )
+    data = resp.json()
+    assert data[0]["status"] == "expired"
+
+    resp2 = client.post(
+        f"/api/approvals/{seeded['request'].id}/approve",
+        headers={"Authorization": f"Bearer {seeded['owner_token']}"},
+    )
+    assert resp2.status_code == 409
