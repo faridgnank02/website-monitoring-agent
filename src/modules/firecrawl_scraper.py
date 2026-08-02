@@ -91,12 +91,14 @@ class FirecrawlScraper:
         for attempt in range(1, max_attempts + 1):
             try:
                 # Appel à l'API Firecrawl (v4.x syntax)
-                result = self.client.scrape(
+                scrape_params = dict(
                     url=url,
                     formats=formats,
                     only_main_content=True,  # Ne garder que le contenu principal
                     wait_for=2000,  # Attendre 2s pour le JavaScript
+                    max_age=0,  # Force fresh scrape, bypass Firecrawl cache
                 )
+                result = self.client.scrape(**scrape_params)
                 
                 # Extraire le contenu (v4.x retourne un objet Document)
                 # Gérer à la fois dict et objet

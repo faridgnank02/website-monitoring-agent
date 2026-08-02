@@ -11,15 +11,15 @@
 #     tags: (optionnel) Liste de tags pour catégoriser
 
 sites:
-  # Exemple 1 : Surveillance de Zalando (site réel qui fonctionne)
+  # Exemple 1 : Surveillance de Zalando (site réel qui fonctionne) - DISABLED
   - instruction: "surveille les prix sur la page homme de Zalando"
     schedule: "daily 10:00"
-    active: true
+    active: false
     threshold: 1.0
     tags:
       - pricing
       - ecommerce
-    notes: "Site de test qui fonctionne bien avec Firecrawl"
+    notes: "Site de test qui fonctionne bien avec Firecrawl - DISABLED"
 
   # Exemple 2 : Surveillance de page de pricing (désactivé car site inexistant)
   - instruction: "surveille la page de tarification de TechCorp pour détecter les changements de prix"

@@ -1,358 +1,405 @@
-# Monitoring website agent
+# Monitor Agent — Enterprise Edition
 
-Intelligent web monitoring agent with automatic change detection and email notifications.
+AI-powered website change monitoring with a real-time dashboard, structured diffing, and email alerts.
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Status](https://img.shields.io/badge/status-production%20ready-brightgreen.svg)]()
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green.svg)](https://fastapi.tiangolo.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)]()
 
 ---
 
-## Description
+## What it does
 
-This project is an automated system that:
+Monitor Agent watches any website for changes and tells you exactly what changed, when, and by how much — without you lifting a finger.
 
-- Understands natural language instructions (e.g., "monitor prices on Zalando")
-- Scrapes websites with JavaScript support (via Firecrawl)
-- Detects and analyzes content changes using difflib
-- Archives history in Google Sheets
-- Sends HTML email notifications
+Give it a plain-English instruction:
 
-### Usage Example
+> *"Monitor competitor pricing on H&M"*
+> *"Track regulatory updates on EUR-Lex"*
+> *"Watch for new press releases on BBC News"*
 
-Give it a natural language instruction like:
+It will:
+1. **Parse the instruction** with a Groq LLM to identify the URL and elements to watch
+2. **Scrape the page** with Firecrawl (handles JavaScript-heavy sites)
+3. **Store the full content** in a local database
+4. **Diff against the previous version** using Python difflib — line by line, not just hashes
+5. **Alert you by email** when the change score exceeds your threshold
+6. **Show everything** in a live dashboard with a side-by-side diff viewer
 
-> *"monitor prices on the Zalando men's page"*
+---
 
-And it will:
-1. Automatically identify the correct URL (`https://www.zalando.fr/homme`)
-2. Scrape the site (even JavaScript-heavy sites) - 56,509 characters extracted
-3. Compare with the previous version (intelligent diff using difflib)
-4. Store history in Google Sheets
-5. Send an email alert if change > defined threshold (5.0% detected)
+## System architecture
 
-## Architecture
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        Browser / Client                          │
+│                  Next.js 16 Dashboard (port 3000)                │
+│  /overview  /sites  /sites/[id]  /activity  /login              │
+└───────────────────────────┬──────────────────────────────────────┘
+                            │ REST + SSE
+┌───────────────────────────▼──────────────────────────────────────┐
+│                    FastAPI Backend (port 8000)                    │
+│  /auth/*   /api/monitor/sites/*   /api/monitor/stream (SSE)      │
+└──────┬───────────────┬────────────────────────┬──────────────────┘
+       │               │                        │
+┌──────▼──────┐ ┌──────▼───────┐  ┌────────────▼────────────────┐
+│  SQLite DB  │ │ core/monitor │  │    Existing Python modules  │
+│  (or PG)   │ │  _service.py │  │  ai_agent  (Groq LLM)       │
+│             │ │              │  │  firecrawl_scraper          │
+│  sites      │ │  Orchestrates│  │  content_comparator         │
+│  snapshots  │ │  the 5       │  │  gmail_notifier             │
+│  changes    │ │  modules     │  └─────────────────────────────┘
+│  users      │ └──────────────┘
+│  notif_log  │
+└─────────────┘
+       ▲
+┌──────┴──────────────────────────────────────────────────────────┐
+│              APScheduler (src/scheduler_db.py)                   │
+│  Reads cron schedule from DB, runs each site on its schedule     │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Project structure
 
 ```
 monitor_agent/
-├── main.py                      # Main orchestrator
-├── config/
-│   ├── settings.py             # Centralized configuration
-│   ├── sites.yaml              # List of sites to monitor
-│   ├── .env                    # Environment variables (to create)
-│   └── .env.example            # Configuration template
-├── src/
-│   ├── scheduler.py            # Automated scheduling (APScheduler)
+├── api/                        # FastAPI application layer (NEW)
+│   ├── main.py                 # App entry point, CORS, lifespan
+│   ├── deps.py                 # Dependency injection (DB session, auth)
+│   ├── auth/
+│   │   ├── service.py          # JWT creation/verification, password hashing
+│   │   └── router.py           # POST /auth/login, /auth/register
+│   └── routers/
+│       └── monitor.py          # All /api/monitor/* endpoints + SSE
+├── db/                         # Database layer (NEW)
+│   ├── base.py                 # SQLAlchemy engine + session factory
+│   └── models.py               # User, MonitorSite, MonitorSnapshot, MonitorChange
+├── core/                       # Business logic (NEW)
+│   └── monitor_service.py      # Full monitoring cycle — THE key fix vs. old code
+├── src/                        # Original modules (UNCHANGED)
 │   ├── modules/
-│   │   ├── ai_agent.py         # Instruction parsing (Groq LLM)
-│   │   ├── firecrawl_scraper.py # Web scraping (Firecrawl API)
-│   │   ├── content_comparator.py # Change detection
-│   │   ├── sheets_manager.py   # Google Sheets management
-│   │   └── gmail_notifier.py   # Email notifications
-│   └── utils/
-│       └── logger.py           # Logging system
-└── tests/                      # Unit tests
-
-
+│   │   ├── ai_agent.py         # Groq LLM instruction parsing
+│   │   ├── firecrawl_scraper.py# Web scraping (JS support)
+│   │   ├── content_comparator.py # difflib change detection
+│   │   ├── sheets_manager.py   # Legacy Google Sheets logging
+│   │   └── gmail_notifier.py   # HTML email alerts
+│   ├── scheduler.py            # Legacy YAML-based scheduler (still works)
+│   └── scheduler_db.py         # NEW: DB-backed scheduler
+├── config/
+│   ├── settings.py             # Environment variable loader
+│   ├── sites.yaml              # Legacy: static site list
+│   └── .env                    # API keys (create from .env.example)
+├── frontend/                   # Next.js 16 dashboard (NEW)
+│   ├── app/
+│   │   ├── (auth)/login/       # Login / register
+│   │   └── (dashboard)/
+│   │       ├── overview/       # KPI cards + live feed
+│   │       ├── sites/          # Sites list + CRUD
+│   │       ├── sites/[id]/     # Site detail + diff viewer
+│   │       └── activity/       # Full change log
+│   └── lib/
+│       ├── api.ts              # Typed API client
+│       └── types.ts            # TypeScript interfaces
+├── requirements.txt            # Original Python dependencies
+├── requirements-api.txt        # NEW: FastAPI + SQLAlchemy + JWT
+├── docker-compose.yml          # NEW: full-stack one-command setup
+├── Dockerfile                  # NEW: API container
+└── monitor.db                  # SQLite database (auto-created)
 ```
 
-## Prerequisites
+---
 
-- Python 3.9+
-- Google Cloud account (for Sheets API)
-- Gmail account with App Password
-- API Keys: Groq, Firecrawl
+## Quickstart
 
-## Installation
-
-### 1. Clone the project
+### Option A — Docker (recommended, zero setup)
 
 ```bash
-git clone <repository_url>
-cd monitor_agent
-```
-
-### 2. Create virtual environment
-
-```bash
-python3 -m venv venv
-source venv/bin/activate  # macOS/Linux
-# or
-.\venv\Scripts\activate   # Windows
-```
-
-### 3. Install dependencies
-
-```bash
-pip install -r requirements.txt -r requirements-api.txt
-```
-
-Then install the Chromium browser binaries used by Playwright for screenshot capture:
-
-```bash
-playwright install chromium
-```
-
-### 4. Google Sheets API Configuration
-
-#### a) Create a Google Cloud project
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create a new project
-3. Enable Google Sheets API:
-   - Menu: "APIs & Services" → "Enable APIs and Services"
-   - Search "Google Sheets API" → Enable
-
-#### b) Create a service account
-
-1. Menu: "APIs & Services" → "Credentials"
-2. Click "Create Credentials" → "Service Account"
-3. Name the account (e.g., `monitor-agent`)
-4. Create a JSON key:
-   - Click on the created account
-   - "Keys" tab → "Add Key" → "Create new key" → JSON
-5. Download and save the file as `credentials.json` at the project root
-
-#### c) Create and share a Google Sheet
-
-1. Create a new [Google Sheet](https://sheets.google.com)
-2. Copy the sheet ID from the URL:
-   ```
-   https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit
-   ```
-3. Share the sheet with the service account email (from `credentials.json`)
-   - Right-click → Share
-   - Paste the service account email
-   - Grant "Editor" permissions
-
-### 5. Gmail App Password Configuration
-
-#### a) Enable 2-step verification
-
-1. Go to [Google Account](https://myaccount.google.com)
-2. Security → 2-Step Verification → Enable
-
-#### b) Generate an App Password
-
-1. Security → 2-Step Verification → App passwords
-2. Create a new password:
-   - Application: "Mail"
-   - Device: "Other" → "Monitor Agent"
-3. Copy the generated password (16 characters)
-
-### 6. Environment variables configuration
-
-```bash
+# 1. Copy and fill in your API keys
 cp config/.env.example config/.env
+# Edit config/.env with: GROQ_API_KEY, FIRECRAWL_API_KEY, GMAIL_*
+
+# 2. Start everything
+docker compose up
+
+# Dashboard  → http://localhost:3000
+# API        → http://localhost:8000
+# API docs   → http://localhost:8000/docs
 ```
 
-Edit `config/.env` with your values:
+All three services start in the correct order: API → Scheduler → Frontend.
+
+### Option B — Local development
+
+#### 1. Python backend
+
+```bash
+# Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate          # macOS/Linux
+# .\venv\Scripts\activate         # Windows
+
+# Install all dependencies
+pip install -r requirements.txt -r requirements-api.txt
+
+# Configure environment
+cp config/.env.example config/.env
+# Edit config/.env — minimum required: GROQ_API_KEY, FIRECRAWL_API_KEY, GMAIL_*
+
+# Start the API server (creates monitor.db automatically on first run)
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+#### 2. Next.js frontend
+
+```bash
+cd frontend
+npm install
+npm run dev       # http://localhost:3000
+```
+
+#### 3. Scheduler (optional — runs monitoring on cron schedules)
+
+```bash
+# In a separate terminal, with venv active:
+python src/scheduler_db.py
+```
+
+#### 4. Legacy CLI (original behaviour, no dashboard)
+
+```bash
+# One-time run for all active sites in config/sites.yaml
+python main.py
+
+# Continuous scheduling from sites.yaml
+python src/scheduler.py
+```
+
+---
+
+## Environment variables
+
+Create `config/.env` from `.env.example` and fill in:
 
 ```env
-# Groq API (LLM for instruction parsing)
-GROQ_API_KEY=gsk_...
+# ── Required ────────────────────────────────────────────────────────
+GROQ_API_KEY=gsk_...                      # https://console.groq.com
+FIRECRAWL_API_KEY=fc-...                  # https://firecrawl.dev
+GMAIL_SENDER_EMAIL=you@gmail.com
+GMAIL_RECIPIENT_EMAIL=alerts@yourco.com
+GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx   # Gmail → Security → App Passwords
 
-# Firecrawl API (Web scraping)
-FIRECRAWL_API_KEY=fc-...
+# ── Optional ────────────────────────────────────────────────────────
+SECRET_KEY=change-me-in-production        # JWT signing key
+DATABASE_URL=sqlite:///./monitor.db       # Switch to postgresql://... for prod
+ENV=development
+LOG_LEVEL=INFO
+DEFAULT_CHANGE_THRESHOLD=1.0
+GROQ_MODEL=mixtral-8x7b-32768
 
-# Google Sheets
+# ── Legacy (only needed if using Google Sheets logging) ─────────────
 GOOGLE_CREDENTIALS_FILE=credentials.json
-GOOGLE_SHEET_ID=1DXPcaCriAUVmS7y2pWkEsfJ6MPtSM_ixv0AbZbjxjfs
-
-# Gmail
-GMAIL_SENDER_EMAIL=your-email@gmail.com
-GMAIL_RECIPIENT_EMAIL=recipient@gmail.com
-GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
+GOOGLE_SHEET_ID=your_sheet_id
 ```
 
-### 7. Sites to monitor configuration
+---
 
-Edit `config/sites.yaml`:
+## Using the dashboard
 
-```yaml
-sites:
-  - instruction: "monitor prices on Zalando men's page"
-    schedule: "daily 10:00"
-    active: true
-    threshold: 1.0
-    tags:
-      - pricing
-      - ecommerce
-    notes: "Men's fashion price monitoring"
+### 1. Create an account
 
-  - instruction: "monitor TechCrunch blog for new AI articles"
-    schedule: "twice-daily"
-    active: false
-    threshold: 5.0
-    tags:
-      - news
-      - tech
-```
+Open `http://localhost:3000/login` → click **Sign up** → enter email + password.
 
-**Parameters:**
-- `instruction`: Natural language description (parsed by AI Agent)
-- `schedule`: Frequency (for future automation)
-- `active`: `true` to enable monitoring
-- `threshold`: Change threshold (%) to trigger notification
-- `tags`: Labels for categorization
-- `notes`: Additional notes
+### 2. Add a site
 
-## Usage
+Go to **Sites** → **Add site** → describe what to monitor in plain English:
 
-### Manual execution (one-time)
+| Instruction example | Use case |
+|---|---|
+| `Monitor prices on hm.com men's section` | E-commerce pricing |
+| `Watch for out-of-stock alerts on adidas.com` | E-commerce stock |
+| `Track new directives on eur-lex.europa.eu` | Regulatory / compliance |
+| `Monitor press releases on bbc.co.uk/news` | Press / media intelligence |
+| `Watch competitor product launches on dyson.com` | Competitor intelligence |
+
+Set an **alert threshold** (% change required to send an email) and a **use case** tag.
+
+### 3. Run a check
+
+Click the **Play** button on any site card for an immediate check, or wait for the scheduler to run automatically based on the cron schedule.
+
+### 4. View diffs
+
+Click a site → **Change History** → select any detected change → see a side-by-side diff of exactly what changed between the two versions.
+
+### 5. Live feed
+
+The **Overview** page shows a real-time activity feed via Server-Sent Events — changes appear instantly without refreshing.
+
+---
+
+## API reference
+
+The full interactive API documentation is available at `http://localhost:8000/docs` (Swagger UI) and `http://localhost:8000/redoc`.
+
+### Authentication
 
 ```bash
-python3 main.py
+# Register
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "you@co.com", "password": "yourpass"}'
+
+# Login
+curl -X POST http://localhost:8000/auth/login \
+  -d "username=you@co.com&password=yourpass"
+
+# Use the returned access_token as: Authorization: Bearer <token>
 ```
 
-### Automated scheduling (production)
+### Key endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/auth/register` | Create account |
+| `POST` | `/auth/login` | Get JWT token |
+| `GET` | `/api/monitor/sites` | List all your sites |
+| `POST` | `/api/monitor/sites` | Add a new site |
+| `PUT` | `/api/monitor/sites/{id}` | Update / pause a site |
+| `DELETE` | `/api/monitor/sites/{id}` | Delete a site |
+| `POST` | `/api/monitor/sites/{id}/trigger` | Run a check immediately |
+| `GET` | `/api/monitor/sites/{id}/history` | Snapshots + change history |
+| `GET` | `/api/monitor/changes/{id}/diff` | Full diff content for a change |
+| `GET` | `/api/monitor/changes` | All changes (paginated) |
+| `GET` | `/api/monitor/stats` | Aggregate KPIs |
+| `GET` | `/api/monitor/stream?token=<jwt>` | SSE real-time event stream |
+| `GET` | `/health` | Health check |
+
+---
+
+## Scheduling
+
+Sites are scheduled using standard cron expressions stored in the database.
+
+Default: `0 */6 * * *` (every 6 hours)
+
+| Schedule | Cron expression |
+|---|---|
+| Every hour | `0 * * * *` |
+| Every 6 hours | `0 */6 * * *` |
+| Daily at 9am UTC | `0 9 * * *` |
+| Twice daily | `0 9,18 * * *` |
+| Weekdays at 8am | `0 8 * * 1-5` |
+
+Update a site's schedule via the API:
 
 ```bash
-# Start the scheduler (runs continuously)
-python3 src/scheduler.py
-
-# Or run in background
-nohup python3 src/scheduler.py > scheduler.log 2>&1 &
+curl -X PUT http://localhost:8000/api/monitor/sites/1 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"schedule_cron": "0 9 * * 1-5"}'
 ```
 
-The scheduler will:
-- Read active sites from `config/sites.yaml`
-- Execute monitoring at scheduled times (e.g., daily 10:00)
-- Log all executions
-- Send email notifications when changes are detected
+The scheduler (`src/scheduler_db.py`) reloads its job list every 10 minutes, so new sites added via the API are picked up automatically.
 
-**Workflow:**
+---
 
-1. Module initialization (Sheets, Gmail)
-2. Loading `sites.yaml`
-3. For each active site (at scheduled time):
-   - Parse instruction → URL
-   - Scrape content
-   - Calculate MD5 hash
-   - Save to Google Sheets
-   - Compare with previous version
-   - Send email if change > threshold
+## Business use cases
 
-### View logs
+### E-commerce clients
 
-Logs are in Google Sheets with 2 tabs:
+| Signal | Configuration |
+|---|---|
+| Competitor raises or lowers prices | `use_case: ecommerce_pricing`, threshold `1.0%` |
+| Product goes out of stock | `use_case: ecommerce_stock`, threshold `0.5%` |
+| New product launch | `use_case: competitor`, threshold `2.0%` |
 
-- **Log**: History of all scrapings
-- **Comparison**: History of comparisons and detected changes
+**Measurable impact**: Detect a competitor price change 2–6 hours before it appears on price comparison engines. Respond before customers notice.
 
-### Email notification format
+### Consulting clients
 
-HTML email with:
+| Signal | Configuration |
+|---|---|
+| New EU regulation published | `use_case: regulatory`, threshold `0.5%` |
+| Press release from tracked company | `use_case: press`, threshold `1.0%` |
+| Market report updated | `use_case: competitor`, threshold `2.0%` |
 
-- Header with colored gradient
-- Severity badge (Normal/Moderate/Important/Critical)
-- Change statistics (added/removed/modified lines)
-- Diff summary
-- Link to monitored site
-- Responsive design
+**Measurable impact**: Regulatory alerts with full diff — exactly which paragraphs changed — without manually checking 20 sites per day.
 
-## Tests
+---
 
-### Run all tests
+## Running tests
 
 ```bash
-# AI Agent tests
-python3 tests/test_ai_agent.py
-
-# Content Comparator tests
-python3 tests/test_content_comparator.py
-
-# Sheets Manager tests
-python3 tests/test_sheets_manager.py
-
-# Gmail Notifier tests
-python3 tests/test_gmail_notifier.py
+source venv/bin/activate
+pytest tests/ -v --cov=src
 ```
 
-## Advanced Configuration
-
-### Adjust detection sensitivity
-
-In `sites.yaml`, modify the `threshold`:
-
-- `0.1`: Very sensitive (minor changes)
-- `1.0`: Normal sensitivity
-- `5.0`: Low sensitivity (major changes only)
-
-### Customize email templates
-
-Templates are in `src/modules/gmail_notifier.py`:
-
-- `_create_html_template()`: HTML email
-- `_create_text_fallback()`: Text version
-
-### Custom logger
-
-Configuration in `src/utils/logger.py`:
-
-```python
-LOG_LEVEL = "INFO"  # DEBUG, INFO, WARNING, ERROR
-LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-```
-
-## Data Structure
-
-### Google Sheets - "Log" Tab
-
-| Timestamp | URL | Instruction | Status | Content Hash | Content Length | Error | Metadata |
-|-----------|-----|-------------|--------|--------------|----------------|-------|----------|
-| 2025-11-06T10:30:00 | https://... | monitor... | success | a1b2c3... | 56509 | | {...} |
-
-### Google Sheets - "Comparison" Tab
-
-| Timestamp | URL | Changes | Score % | Lines + | Lines - | Lines Δ | Threshold % | Summary |
-|-----------|-----|---------|---------|---------|---------|---------|-------------|---------|
-| 2025-11-06T10:30:00 | https://... | YES | 5.23% | 12 | 5 | 8 | 1.0% | Prices modified... |
-
-## Contributing
-
-Contributions are welcome! Some ideas:
-
-- Automation with APScheduler
-- Slack/Discord support
-- Web dashboard
-- Multi-recipient support
-- PDF report export
-
-## License
-
-MIT License
+---
 
 ## Troubleshooting
 
-### Google authentication error
+| Error | Cause | Fix |
+|---|---|---|
+| `SMTPAuthenticationError` | Wrong Gmail App Password | Regenerate at Google Account → Security → App Passwords |
+| `google.auth.exceptions.DefaultCredentialsError` | Missing credentials.json | Download service account key from Google Cloud Console |
+| Site URL shows `null` in dashboard | AI hasn't parsed it yet | Click **Run now** — Groq will resolve the URL on first check |
+| Changes detected but diff is empty | Content changed but lines are identical | Dynamic content (ads, timestamps) — increase threshold |
+| `bcrypt` warning on startup | passlib/bcrypt version mismatch | Ensure `bcrypt==4.0.1` is installed (pinned in requirements-api.txt) |
 
-```text
-google.auth.exceptions.DefaultCredentialsError
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE)
+
+---
+
+## MCP Server (Model Context Protocol)
+
+The MCP server exposes Monitor Agent's action handlers (email, Slack, Notion, GitHub, n8n, webhook) to external AI agents (Claude Desktop, Cursor, VS Code) via the Model Context Protocol over HTTP+SSE.
+
+### Start MCP Server
+
+```bash
+# Set API key (shared secret)
+export MCP_API_KEY=your-mcp-api-key-here
+
+# Run directly
+python -m mcp.main
+
+# Or via docker-compose
+docker compose up mcp
 ```
 
-**Solution:** Verify that `credentials.json` exists and the path in `.env` is correct.
+The server runs on port 8001 with SSE transport at `/mcp/sse`.
 
-### Email not sent
+### MCP Client Configuration
 
-```text
-SMTPAuthenticationError: Username and Password not accepted
+For **Claude Desktop** (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "monitor-agent": {
+      "command": "npx",
+      "args": ["mcp-remote", "http://localhost:8001/mcp/sse"],
+      "env": {
+        "MCP_API_KEY": "your-mcp-api-key-here"
+      }
+    }
+  }
+}
 ```
 
-**Solution:**
+### Available Tools
 
-1. Verify that 2-step verification is enabled
-2. Regenerate an App Password
-3. Verify that `GMAIL_APP_PASSWORD` in `.env` is correct (no spaces)
+| Tool | Description | Status |
+|---|---|---|
+| `email` | Send email alert | Implemented (stub) |
+| `slack` | Post to Slack webhook | Implemented (stub) |
+| `notion` | Create Notion page | Placeholder |
+| `github` | Create GitHub issue | Placeholder |
+| `n8n` | Trigger n8n webhook | Placeholder |
+| `webhook` | Generic HTTP webhook | Placeholder |
 
-### Firecrawl timeout
-
-```text
-ERR_TIMED_OUT
-```
-
-**Solution:** The site may be inaccessible or blocking scrapers. Test with another site or verify the URL.
-
-### Identical hash despite changes
-
-**Solution:** Dynamic content (ads, clock) may vary. Increase the `threshold` or filter content before comparison.
+Placeholders return `{"success": false, "message": "Not implemented"}` — real implementations coming in Phase 4.
