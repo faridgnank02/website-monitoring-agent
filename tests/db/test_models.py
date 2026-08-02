@@ -85,6 +85,29 @@ def test_approval_request_creation(db):
     assert req.change_id is None
 
 
+def test_approval_request_resolution_columns_default(db):
+    user = User(email=f"approval-{uuid.uuid4()}@example.com", hashed_password="x")
+    db.add(user)
+    db.commit()
+
+    ar = ApprovalRequest(
+        run_id="r1",
+        action_type="slack",
+        risk_score=0.4,
+        payload={"text": "hi"},
+        status="pending",
+        user_id=user.id,
+    )
+    db.add(ar)
+    db.commit()
+    db.refresh(ar)
+
+    assert ar.resolved_by is None
+    assert ar.output is None
+    assert ar.error_message is None
+    assert ar.status == "pending"
+
+
 def test_site_has_monitor_mode(db):
     user = User(email=f"site-{uuid.uuid4()}@example.com", hashed_password="x")
     db.add(user)

@@ -12,13 +12,8 @@ from core.agents.scout import ScoutAgent
 from core.agents.analyst import AnalystAgent
 from core.agents.reporter import ReporterAgent
 from core.agents.action import ActionAgent
-from core.actions.registry import ActionHandlerRegistry
-from core.actions.handlers.email import EmailActionHandler
-from core.actions.handlers.slack import SlackActionHandler
-from core.actions.handlers.notion import NotionActionHandler
-from core.actions.handlers.github import GitHubActionHandler
-from core.actions.handlers.n8n import N8NActionHandler
-from core.actions.handlers.webhook import WebhookActionHandler
+from core.actions.registry import build_default_registry
+from core.approvals.notifier import ApprovalNotifier
 from core.llm.router import LLMRouter
 from core.visual.diff import VisualDiffEngine
 from core.visual.screenshot import ScreenshotProvider
@@ -55,14 +50,9 @@ class MonitoringOrchestrator:
             screenshot_storage=self.screenshot_storage,
         )
         self.reporter = ReporterAgent(llm_router=self.llm_router)
-        self.action_registry = ActionHandlerRegistry()
-        self.action_registry.register(EmailActionHandler())
-        self.action_registry.register(SlackActionHandler())
-        self.action_registry.register(NotionActionHandler())
-        self.action_registry.register(GitHubActionHandler())
-        self.action_registry.register(N8NActionHandler())
-        self.action_registry.register(WebhookActionHandler())
+        self.action_registry = build_default_registry()
         self.action_agent = ActionAgent(self.action_registry)
+        self.approval_notifier = ApprovalNotifier()
 
     def run(self, site: MonitorSite) -> dict:
         run_id = str(uuid.uuid4())
@@ -243,3 +233,7 @@ class MonitoringOrchestrator:
             )
             self.db.add(ar)
         self.db.commit()
+        try:
+            self.approval_notifier.notify_pending(site, event.approval_requests)
+        except Exception:
+            pass

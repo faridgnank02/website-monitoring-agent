@@ -69,6 +69,7 @@ TIMEZONE = os.getenv('TIMEZONE', 'UTC')
 # ========================================
 N8N_WEBHOOK_URL = os.getenv('N8N_WEBHOOK_URL', 'http://localhost:5678/webhook/monitor')
 N8N_API_KEY = os.getenv('N8N_API_KEY', '')
+APPROVAL_TTL_HOURS = int(os.getenv('APPROVAL_TTL_HOURS', '24'))
 
 # ========================================
 # PATHS
