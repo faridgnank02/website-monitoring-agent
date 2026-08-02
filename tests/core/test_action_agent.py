@@ -11,7 +11,10 @@ def test_action_agent_proposes_email():
     registry.register(EmailActionHandler())
     agent = ActionAgent(registry)
 
-    site = MonitorSite(id=1, user_id=1, instruction="test", threshold=1.0, approval_policy="auto")
+    site = MonitorSite(
+        id=1, user_id=1, instruction="test", threshold=1.0,
+        approval_policy="auto", actions_enabled=["email"],
+    )
     report = ReportEvent(run_id="r1", site_id=1, title="Change", summary="Price dropped", recommended_actions=[])
 
     event = agent.run(report, site)
@@ -25,8 +28,27 @@ def test_action_agent_creates_approval_for_high_risk():
     registry.register(EmailActionHandler())
     agent = ActionAgent(registry)
 
-    site = MonitorSite(id=1, user_id=1, instruction="test", threshold=1.0, approval_policy="always")
+    site = MonitorSite(
+        id=1, user_id=1, instruction="test", threshold=1.0,
+        approval_policy="always", actions_enabled=["email"],
+    )
     report = ReportEvent(run_id="r1", site_id=1, title="Change", summary="Price dropped", recommended_actions=[])
 
     event = agent.run(report, site)
     assert len(event.approval_requests) == 1
+
+
+def test_action_agent_only_runs_enabled_handlers():
+    registry = ActionHandlerRegistry()
+    registry.register(EmailActionHandler())
+    agent = ActionAgent(registry)
+
+    site = MonitorSite(
+        id=1, user_id=1, instruction="test", threshold=1.0,
+        approval_policy="auto", actions_enabled=["slack"],
+    )
+    report = ReportEvent(run_id="r1", site_id=1, title="Change", summary="Price dropped", recommended_actions=[])
+
+    event = agent.run(report, site)
+    assert event.actions == []
+    assert event.approval_requests == []

@@ -12,8 +12,11 @@ class ActionAgent:
 
     def run(self, report: ReportEvent, site: MonitorSite, change: Optional[Any] = None) -> ActionEvent:
         start = time.time()
+        enabled = set(getattr(site, "actions_enabled", None) or [])
         context = ActionContext(site=site, report=report, change=change)
-        proposals = self.registry.propose_all(context)
+        proposals = [
+            p for p in self.registry.propose_all(context) if p.type in enabled
+        ]
 
         actions = []
         approval_requests = []
