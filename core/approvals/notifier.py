@@ -29,7 +29,7 @@ class ApprovalNotifier:
             if not settings.GMAIL_RECIPIENT_EMAIL:
                 return
             summary = "\n".join(
-                f"- {r['action_type']} (risk {r['risk_score']:.2f})" for r in requests
+                f"- {r.get('action_type') or r.get('type')} (risk {r['risk_score']:.2f})" for r in requests
             )
             notification = ChangeNotification(
                 url=getattr(site, "url", None) or "",
@@ -55,7 +55,7 @@ class ApprovalNotifier:
             if not webhook:
                 return
             text = "\n".join(
-                f"- {r['action_type']} (risk {r['risk_score']:.2f})" for r in requests
+                f"- {r.get('action_type') or r.get('type')} (risk {r['risk_score']:.2f})" for r in requests
             )
             proposed = ProposedAction(
                 type="slack",
