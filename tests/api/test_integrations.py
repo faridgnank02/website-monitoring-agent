@@ -195,6 +195,60 @@ def test_put_idempotent_ciphertext(authed_client):
     assert resp2.json()["slack_webhook_masked"] == "****/B/X"
 
 
+def test_put_encrypts_webhook_secret_at_rest(authed_client):
+    client, token, user_id, SessionLocal = authed_client
+    db = SessionLocal()
+    from db.models import MonitorSite
+    site = MonitorSite(user_id=user_id, instruction="test")
+    db.add(site)
+    db.commit()
+    db.refresh(site)
+    site_id = site.id
+    db.close()
+
+    resp = client.put(
+        f"/api/integrations/sites/{site_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "integration_config": {
+                "webhook": {"url": "https://example.com/hooks/monitor", "secret": "plain-shared-secret"}
+            }
+        },
+    )
+    assert resp.status_code == 200
+
+    db = SessionLocal()
+    stored = db.query(MonitorSite).filter(MonitorSite.id == site_id).first()
+    webhook = stored.integration_config["webhook"]
+    assert webhook["secret"].startswith("gAAAA")
+    assert "plain-shared-secret" not in webhook["secret"]
+    db.close()
+
+
+def test_get_masks_webhook_secret(authed_client):
+    client, token, user_id, SessionLocal = authed_client
+    db = SessionLocal()
+    from db.models import MonitorSite
+    site = MonitorSite(user_id=user_id, instruction="test")
+    site.integration_config = {
+        "webhook": {"url": "https://example.com/hooks/monitor", "secret": "shared-secret"}
+    }
+    db.add(site)
+    db.commit()
+    db.refresh(site)
+    site_id = site.id
+    db.close()
+
+    resp = client.get(
+        f"/api/integrations/sites/{site_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    webhook = resp.json()["integration_config"]["webhook"]
+    assert webhook["secret"] != "shared-secret"
+    assert "shared-secret" not in webhook["secret"]
+
+
 def test_put_clears_token_with_empty_string(authed_client):
     client, token, user_id, SessionLocal = authed_client
     db = SessionLocal()

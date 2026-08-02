@@ -48,6 +48,34 @@ _TOKEN_FIELDS = [
     "n8n_webhook_url",
 ]
 
+_WEBHOOK_SECRET_FIELD = "webhook.secret"
+
+
+def _encrypt_integration_secrets(site_id: int, config: dict) -> dict:
+    """Encrypt any secret stored inside integration_config (e.g. webhook.secret), in place."""
+    if not config:
+        return config
+    if "webhook" in config and isinstance(config["webhook"], dict):
+        secret = config["webhook"].get("secret") or ""
+        if secret and not secret.startswith("gAAAA"):
+            config["webhook"]["secret"] = encrypt_site_token(site_id, secret)
+    return config
+
+
+def _mask_integration_config(site: MonitorSite, config: dict) -> dict:
+    """Return a copy of integration_config with secrets masked, never leaking them."""
+    masked = dict(config)
+    if "webhook" in masked and isinstance(masked["webhook"], dict):
+        webhook = dict(masked["webhook"])
+        secret = webhook.get("secret") or ""
+        if secret:
+            try:
+                webhook["secret"] = mask_token(resolve_token(site.id, secret))
+            except ValueError:
+                webhook["secret"] = ""
+        masked["webhook"] = webhook
+    return masked
+
 
 def _get_site_or_404(site_id: int, user_id: int, db: Session) -> MonitorSite:
     site = db.query(MonitorSite).filter(
@@ -70,7 +98,7 @@ def _masked(site: MonitorSite) -> IntegrationsOut:
     return IntegrationsOut(
         site_id=site.id,
         actions_enabled=site.actions_enabled or [],
-        integration_config=site.integration_config or {},
+        integration_config=_mask_integration_config(site, site.integration_config or {}),
         **masked_fields,
     )
 
@@ -114,7 +142,7 @@ def update_site_integrations(
     if "actions_enabled" in data:
         site.actions_enabled = data["actions_enabled"]
     if "integration_config" in data:
-        site.integration_config = data["integration_config"]
+        site.integration_config = _encrypt_integration_secrets(site.id, data["integration_config"])
 
     db.commit()
     db.refresh(site)
