@@ -3,6 +3,7 @@ Configuration centralisée pour Monitor Agent
 Charge toutes les variables d'environnement et expose les settings
 """
 
+import json
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -40,6 +41,11 @@ GOOGLE_SHEET_COMPARISON_TAB = os.getenv('GOOGLE_SHEET_COMPARISON_TAB', 'Comparis
 GMAIL_SENDER_EMAIL = os.getenv('GMAIL_SENDER_EMAIL', '')
 GMAIL_RECIPIENT_EMAIL = os.getenv('GMAIL_RECIPIENT_EMAIL', '')
 GMAIL_APP_PASSWORD = os.getenv('GMAIL_APP_PASSWORD', '')
+
+# ========================================
+# SECURITY SETTINGS
+# ========================================
+SECRET_KEY = os.getenv('SECRET_KEY', '')
 
 # ========================================
 # APPLICATION SETTINGS
@@ -94,6 +100,9 @@ def validate_config():
     if not GMAIL_SENDER_EMAIL or not GMAIL_RECIPIENT_EMAIL:
         errors.append("GMAIL_SENDER_EMAIL et GMAIL_RECIPIENT_EMAIL doivent être définis")
     
+    if not SECRET_KEY or not SECRET_KEY.strip():
+        errors.append("SECRET_KEY doit être définie et non vide")
+    
     if errors:
         error_msg = "\n".join([f"  - {error}" for error in errors])
         raise ValueError(
@@ -104,9 +113,31 @@ def validate_config():
     return True
 
 # ========================================
+# LLM ROUTER CONFIG
+# ========================================
+LLM_ROUTER_CONFIG = os.getenv("LLM_ROUTER_CONFIG", "")
+
+def load_llm_router_config() -> dict:
+    """Load router config from env JSON or return a sensible default."""
+    if LLM_ROUTER_CONFIG:
+        try:
+            return json.loads(LLM_ROUTER_CONFIG)
+        except json.JSONDecodeError:
+            raise ValueError("LLM_ROUTER_CONFIG is not valid JSON")
+    return {
+        "groq_fast": {
+            "provider": "openai_compatible",
+            "base_url": "https://api.groq.com/openai/v1",
+            "api_env": "GROQ_API_KEY",
+            "model": "llama-3.3-70b-versatile",
+        }
+    }
+
+# ========================================
 # EXPORT
 # ========================================
 __all__ = [
+    'SECRET_KEY',
     'GROQ_API_KEY',
     'GROQ_MODEL',
     'FIRECRAWL_API_KEY',
@@ -132,4 +163,6 @@ __all__ = [
     'LOGS_DIR',
     'SITES_CONFIG_FILE',
     'validate_config',
+    'LLM_ROUTER_CONFIG',
+    'load_llm_router_config',
 ]

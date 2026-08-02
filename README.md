@@ -84,7 +84,13 @@ source venv/bin/activate  # macOS/Linux
 ### 3. Install dependencies
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-api.txt
+```
+
+Then install the Chromium browser binaries used by Playwright for screenshot capture:
+
+```bash
+playwright install chromium
 ```
 
 ### 4. Google Sheets API Configuration

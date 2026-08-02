@@ -71,3 +71,6 @@ htmlcov/
 # Project specific
 data/scraped_content/
 data/temp/
+
+# Worktrees
+.worktrees/
