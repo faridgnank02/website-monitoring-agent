@@ -16,6 +16,34 @@ from core.actions.handlers.github import GitHubActionHandler
 from core.actions.handlers.n8n import N8NActionHandler
 from core.actions.handlers.webhook import WebhookActionHandler
 from fastapi.testclient import TestClient
+from db.base import SessionLocal, init_db
+from db.models import User, MonitorSite
+
+
+def get_test_db():
+    init_db()
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == "mcp-test@example.com").first()
+        if not user:
+            user = User(email="mcp-test@example.com", hashed_password="test")
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        site = db.query(MonitorSite).filter(MonitorSite.user_id == user.id).first()
+        if not site:
+            site = MonitorSite(
+                user_id=user.id,
+                instruction="test",
+                threshold=1.0,
+                approval_policy="never",
+            )
+            db.add(site)
+            db.commit()
+            db.refresh(site)
+        yield db, site.id
+    finally:
+        db.close()
 
 
 def test_mcp_package_imports():
@@ -27,69 +55,92 @@ def test_mcp_package_imports():
 
 
 def test_list_tools_returns_all_six_handlers():
-    registry = ActionHandlerRegistry()
-    registry.register(EmailActionHandler())
-    registry.register(SlackActionHandler())
-    registry.register(NotionActionHandler())
-    registry.register(GitHubActionHandler())
-    registry.register(N8NActionHandler())
-    registry.register(WebhookActionHandler())
+    db_gen = get_test_db()
+    db, site_id = next(db_gen)
+    try:
+        registry = ActionHandlerRegistry()
+        registry.register(EmailActionHandler())
+        registry.register(SlackActionHandler())
+        registry.register(NotionActionHandler())
+        registry.register(GitHubActionHandler())
+        registry.register(N8NActionHandler())
+        registry.register(WebhookActionHandler())
 
-    server = MCPServer(registry)
-    tools = server.list_tools()
+        server = MCPServer(registry, db)
+        tools = server.list_tools()
 
-    assert len(tools) == 6
-    tool_names = {t["name"] for t in tools}
-    assert tool_names == {"email", "slack", "notion", "github", "n8n", "webhook"}
-    for tool in tools:
-        assert "inputSchema" in tool
-        assert "outputSchema" in tool
+        assert len(tools) == 6
+        tool_names = {t["name"] for t in tools}
+        assert tool_names == {"email", "slack", "notion", "github", "n8n", "webhook"}
+        for tool in tools:
+            assert "inputSchema" in tool
+            assert "outputSchema" in tool
+    finally:
+        db.close()
 
 
 def test_call_tool_email_returns_action_result():
-    registry = ActionHandlerRegistry()
-    registry.register(EmailActionHandler())
-    
-    server = MCPServer(registry)
-    result = server.call_tool("email", {"payload": {"subject": "test", "body": "hello"}})
-    
-    assert "content" in result
-    content = result["content"][0]["text"]
-    assert "success" in content
-    assert "message" in content
+    db_gen = get_test_db()
+    db, site_id = next(db_gen)
+    try:
+        registry = ActionHandlerRegistry()
+        registry.register(EmailActionHandler())
+
+        server = MCPServer(registry, db)
+        result = server.call_tool("email", {"payload": {"subject": "test", "body": "hello"}}, site_id)
+
+        assert "content" in result
+        content = result["content"][0]["text"]
+        assert "success" in content
+        assert "message" in content
+    finally:
+        db.close()
 
 
 def test_call_tool_slack_returns_action_result():
-    registry = ActionHandlerRegistry()
-    registry.register(SlackActionHandler())
-    
-    server = MCPServer(registry)
-    result = server.call_tool("slack", {"payload": {"webhook": "http://slack", "message": "test"}})
-    
-    assert "content" in result
-    content = result["content"][0]["text"]
-    assert "success" in content
+    db_gen = get_test_db()
+    db, site_id = next(db_gen)
+    try:
+        # Set slack_webhook on site
+        from db.models import MonitorSite
+        site = db.query(MonitorSite).filter(MonitorSite.id == site_id).first()
+        site.slack_webhook = "http://slack-webhook"
+        db.commit()
+        
+        registry = ActionHandlerRegistry()
+        registry.register(SlackActionHandler())
+
+        server = MCPServer(registry, db)
+        result = server.call_tool("slack", {"payload": {"message": "test"}}, site_id)
+
+        assert "content" in result
+        content = result["content"][0]["text"]
+        assert "success" in content
+    finally:
+        db.close()
 
 
 def test_call_tool_unknown_handler_raises():
-    registry = ActionHandlerRegistry()
-    registry.register(EmailActionHandler())
-    
-    server = MCPServer(registry)
+    db_gen = get_test_db()
+    db, site_id = next(db_gen)
     try:
-        server.call_tool("unknown", {})
-        assert False, "Should have raised"
-    except ValueError as e:
-        assert "Handler not found" in str(e)
+        registry = ActionHandlerRegistry()
+        registry.register(EmailActionHandler())
+
+        server = MCPServer(registry, db)
+        try:
+            server.call_tool("unknown", {}, site_id)
+            assert False, "Should have raised"
+        except ValueError as e:
+            assert "Handler not found" in str(e)
+    finally:
+        db.close()
 
 
 def test_sse_endpoint_streams_events():
-    # SSE endpoint test - verify routing and auth
-    # Full streaming test requires a proper HTTP client, TestClient doesn't handle streaming well
     import mcp.transport
     assert hasattr(mcp.transport, 'sse_endpoint')
     assert hasattr(mcp.transport, 'sse_router')
-    assert hasattr(mcp.transport, 'mcp_server')
 
 
 def test_mcp_rejects_missing_api_key():
@@ -134,7 +185,12 @@ def test_full_mcp_flow():
     tool_names = {t["name"] for t in tools}
     assert tool_names == {"email", "slack", "notion", "github", "n8n", "webhook"}
     
-    # Call email tool
+    # Get a test site
+    db_gen = get_test_db()
+    db, site_id = next(db_gen)
+    db.close()
+    
+    # Call email tool with site_id
     response = client.post(
         "/mcp/message",
         headers=headers,
@@ -142,7 +198,7 @@ def test_full_mcp_flow():
             "jsonrpc": "2.0",
             "id": 2,
             "method": "tools/call",
-            "params": {"name": "email", "arguments": {"payload": {"subject": "Test", "body": "Hello"}}}
+            "params": {"name": "email", "arguments": {"payload": {"subject": "Test", "body": "Hello"}}, "site_id": site_id}
         }
     )
     assert response.status_code == 200

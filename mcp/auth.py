@@ -4,7 +4,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import os
 
 
-MCP_API_KEY = os.getenv("MCP_API_KEY", "")
+MCP_API_KEY = os.getenv("MCP_API_KEY")
+if not MCP_API_KEY:
+    raise RuntimeError("MCP_API_KEY environment variable must be set")
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):

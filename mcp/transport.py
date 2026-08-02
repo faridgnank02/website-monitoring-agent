@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 from mcp.server import MCPServer
 from core.actions.registry import ActionHandlerRegistry
 from core.actions.handlers.email import EmailActionHandler
@@ -8,6 +9,7 @@ from core.actions.handlers.notion import NotionActionHandler
 from core.actions.handlers.github import GitHubActionHandler
 from core.actions.handlers.n8n import N8NActionHandler
 from core.actions.handlers.webhook import WebhookActionHandler
+from db.base import SessionLocal
 import json
 import asyncio
 from typing import AsyncGenerator
@@ -15,15 +17,27 @@ from typing import AsyncGenerator
 
 sse_router = APIRouter()
 
-# Initialize MCP server with all handlers
-registry = ActionHandlerRegistry()
-registry.register(EmailActionHandler())
-registry.register(SlackActionHandler())
-registry.register(NotionActionHandler())
-registry.register(GitHubActionHandler())
-registry.register(N8NActionHandler())
-registry.register(WebhookActionHandler())
-mcp_server = MCPServer(registry)
+# Initialize handler registry (shared)
+_registry = ActionHandlerRegistry()
+_registry.register(EmailActionHandler())
+_registry.register(SlackActionHandler())
+_registry.register(NotionActionHandler())
+_registry.register(GitHubActionHandler())
+_registry.register(N8NActionHandler())
+_registry.register(WebhookActionHandler())
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_mcp_server(db: Session = Depends(get_db)) -> MCPServer:
+    return MCPServer(_registry, db)
+
 
 # Simple session store for SSE
 sessions = {}
@@ -39,7 +53,10 @@ async def initialize(request: Request):
 
 
 @sse_router.post("/message")
-async def message(request: Request):
+async def message(
+    request: Request,
+    mcp_server: MCPServer = Depends(get_mcp_server)
+):
     body = await request.json()
     method = body.get("method")
     params = body.get("params", {})
@@ -51,8 +68,11 @@ async def message(request: Request):
     elif method == "tools/call":
         name = params.get("name")
         arguments = params.get("arguments", {})
+        site_id = params.get("site_id")
+        if not site_id:
+            return {"jsonrpc": "2.0", "id": request_id, "error": {"code": -32602, "message": "site_id required"}}
         try:
-            result = mcp_server.call_tool(name, arguments)
+            result = mcp_server.call_tool(name, arguments, site_id)
             return {"jsonrpc": "2.0", "id": request_id, "result": result}
         except ValueError as e:
             return {"jsonrpc": "2.0", "id": request_id, "error": {"code": -32601, "message": str(e)}}
@@ -61,10 +81,8 @@ async def message(request: Request):
 
 async def sse_event_generator(session_id: str) -> AsyncGenerator[str, None]:
     """Generate SSE events for a session."""
-    # Send initial connection event
     yield f"data: {json.dumps({'type': 'connected', 'sessionId': session_id})}\n\n"
     
-    # Keep connection alive
     try:
         while True:
             await asyncio.sleep(30)
