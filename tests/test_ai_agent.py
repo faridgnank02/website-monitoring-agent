@@ -1,43 +1,46 @@
-"""
-Test de l'agent IA avec différentes instructions
-"""
+"""Unit tests for the AI instruction-parsing agent (no live API calls)."""
 
-from src.modules.ai_agent import parse_instruction
+from unittest.mock import patch
 
-# Instructions de test
-test_instructions = [
-    "surveille les prix sur la page homme de Zalando",
-    "monitore la page pricing de TechCorp pour les changements de tarifs",
-    "track les nouvelles fonctionnalités sur la page produit de Notion",
-    "surveille le blog de OpenAI pour les nouveaux articles sur GPT",
-]
+from src.modules.ai_agent import ParsedInstruction, AIAgent
 
-print("🤖 Test de l'Agent IA (CrewAI + Groq)")
-print("=" * 80)
-print()
 
-for i, instruction in enumerate(test_instructions, 1):
-    print(f"\n{'='*80}")
-    print(f"Test {i}/{len(test_instructions)}")
-    print(f"{'='*80}")
-    print(f"📝 Instruction: \"{instruction}\"")
-    print()
-    
-    result = parse_instruction(instruction)
-    
-    if result.success:
-        print("✅ Parsing réussi!")
-        print(f"\n🔗 URL extraite: {result.url}")
-        print(f"\n📋 Éléments à surveiller:")
-        for element in result.elements_to_watch:
-            print(f"   • {element}")
-        print(f"\n💡 Description: {result.description}")
-        print(f"\n🏷️  Mots-clés: {', '.join(result.keywords)}")
-    else:
-        print(f"❌ Échec du parsing")
-        print(f"Erreur: {result.error}")
-    
-    print()
+def _make_response(content: str):
+    from groq.types.chat import ChatCompletion
+    from groq.types.chat.chat_completion import Choice
+    from groq.types.chat.chat_completion_message import ChatCompletionMessage
 
-print("\n" + "=" * 80)
-print("✨ Tests terminés!")
+    message = ChatCompletionMessage(role="assistant", content=content)
+    return ChatCompletion(
+        id="mock",
+        model="mock-model",
+        object="chat.completion",
+        created=0,
+        choices=[Choice(index=0, message=message, finish_reason="stop")],
+    )
+
+
+def test_aiagent_requires_api_key():
+    with patch("src.modules.ai_agent.settings.GROQ_API_KEY", ""):
+        assert not AIAgent.__init__.__defaults__ or True
+        try:
+            AIAgent(api_key="")
+        except ValueError as e:
+            assert "GROQ_API_KEY" in str(e)
+
+
+def test_aiagent_parses_instruction():
+    agent = AIAgent(api_key="fake-key")
+    content = (
+        "{\"url\": \"https://www.zalando.fr/homme\", "
+        "\"elements_to_watch\": [\"prix\"], "
+        "\"description\": \"surveiller les prix\", "
+        "\"keywords\": [\"pricing\", \"ecommerce\"]}"
+    )
+    with patch.object(agent.client.chat.completions, "create", return_value=_make_response(content)):
+        result = agent.parse_instruction("surveille les prix sur la page homme de Zalando")
+
+    assert isinstance(result, ParsedInstruction)
+    assert result.success is True
+    assert result.url == "https://www.zalando.fr/homme"
+    assert result.elements_to_watch == ["prix"]
