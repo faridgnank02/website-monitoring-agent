@@ -1,5 +1,6 @@
 # Environment variables
 .env
+config/.env
 .env.local
 .env.*.local
 
@@ -51,7 +52,8 @@ data/logs/*.txt
 credentials.json
 token.json
 service_account.json
-*.json
+*.key
+*_service_account*.json
 
 # n8n data
 n8n/.n8n/
@@ -72,5 +74,20 @@ htmlcov/
 data/scraped_content/
 data/temp/
 
+# Local databases (auto-created at startup)
+monitor.db
+*.sqlite3
+*.sqlite
+*.db
+
 # Worktrees
 .worktrees/
+
+# Frontend (Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+frontend/.env*
+frontend/CLAUDE.md
+frontend/AGENTS.md
